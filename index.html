@@ -35,7 +35,7 @@ const firebaseConfig = {
   measurementId: "G-C9V5F2DV14"
 };
 
-const ADMIN_EMAILS=["dominhkhaik9@gmail.com"]; // Gmail của quản trị viên
+const ADMIN_EMAILS=["dominhkhaik9@gmail.com"];
 let useFB=!!firebaseConfig.apiKey&&typeof firebase!='undefined',fdb,fauth;
 if(useFB){try{firebase.initializeApp(firebaseConfig);fdb=firebase.firestore()}catch(e){useFB=false}}
 if(useFB)try{fauth=firebase.auth()}catch(e){}
@@ -47,8 +47,12 @@ async function del(c,id){S[c]=S[c].filter(x=>x.id!=id);useFB?await fdb.collectio
 // ===== Helpers =====
 const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-// Hỗ trợ gạch chân cú pháp _từ_ (tiếng Anh) mà không ảnh hưởng tới KaTeX (công thức toán x_1)
-const rtf=s=>esc(s).replace(/(^|\s)_([^_]+)_(?=\s|[.,;:!?]|$)/g,'$1<u>$2</u>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+// Hỗ trợ in đậm **...**, gạch chân _..._ và tô sáng chỗ trống (số) ___ trong đoạn văn
+const rtf=(s,hlNum)=>{
+  let out=esc(s).replace(/(^|[\s(])_([^_\n]+)_(?=[\s.,;:!?)"]|$)/g,'$1<u class="decoration-2 underline-offset-4 font-semibold text-teal-800">$2</u>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  if(hlNum)out=out.replace(new RegExp(`\\(${hlNum}\\)\\s*_*`,'g'),m=>`<mark class="bg-amber-300 text-slate-900 font-extrabold px-1.5 py-0.5 rounded shadow-sm">${m}</mark>`);
+  return out;
+};
 const av=u=>u.avatar||`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.username||'x')}`;
 const cn=id=>S.classes.find(c=>c.id==id)?.name||'—',quizOf=r=>S.quizzes.find(q=>q.id==r.quizId);
 const clsOpts=s=>S.classes.map(c=>`<option value="${c.id}" ${c.id==s?'selected':''}>${esc(c.name)}</option>`).join('');
@@ -58,30 +62,37 @@ const nz=s=>String(s).trim().toLowerCase().replace(/\s/g,'').replace(/,/g,'.');
 const math=()=>window.renderMathInElement&&renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});
 function toast(m,t='ok'){const d=document.createElement('div');d.className='fade px-4 py-3 rounded-xl shadow-lg text-sm font-medium '+(t=='ok'?'bg-emerald-500 text-slate-900':'bg-red-500 text-white');d.textContent=m;$('#toast').append(d);setTimeout(()=>d.remove(),3500)}
 const modal=(h,k)=>{$('#modal').innerHTML=h?`<div class="fixed inset-0 bg-slate-900/40 z-40 overflow-auto p-3 flex items-start justify-center"><div class="card fade w-full max-w-2xl my-6 relative">${k?'':`<button class="absolute right-4 top-2 text-2xl" onclick="modal('')">×</button>`}${h}</div></div>`:'';math()};
-let me=null,view='home',ex=null,tm,curR,newAv,authMode='login',lb={q:'',c:''};
+let me=null,view='home',ex=null,tm,curR,newAv,authMode='login',lb={q:'',c:''},editId=null;
 
-// ===== Parser đề thi nâng cấp (Hỗ trợ Đoạn Văn Tiếng Anh) =====
+// ===== Parser đề thi chuẩn cấu trúc mới (Hỗ trợ [ĐOẠN VĂN], Cloze Test, Sắp xếp, Gạch chân) =====
 function parse(t){
   const qs=[];let cq=null,cg='',ig=false,md='text',m;
   t.replace(/\r/g,'').split('\n').forEach(ln=>{
     const tr=ln.trim();
-    if(tr==='[ĐOẠN VĂN]'){ig=true;cg='';return}
-    if(tr==='[/ĐOẠN VĂN]'){ig=false;return}
-    if(ig){cg+=(cg?'\n':'')+tr;return} // Gom đoạn văn
-    if(m=tr.match(/^\s*Câu\s*\d+\s*[:.]\s*(.*)$/)){
+    if(/^\[ĐOẠN VĂN\]$/i.test(tr)){ig=true;cg='';return}
+    if(/^\[\/ĐOẠN VĂN\]$/i.test(tr)){ig=false;return}
+    if(ig){cg+=(cg?'\n':'')+tr;return}
+    if(m=tr.match(/^\s*Câu\s*(\d+)\s*[:.]\s*(.*)$/i)){
       if(cq)qs.push(cq);
-      cq={text:m[1],mc:[],tf:[],sa:null,exp:'',group:cg};md='text'; // Gắn đoạn văn vào câu hỏi
+      const qNum=m[1],rawTxt=m[2].replace(/\s*\|\s*/g,'\n').trim();
+      cq={num:qNum,text:rawTxt,mc:[],tf:[],sa:null,exp:'',group:cg};md='text';
     }else if(cq){
       if(m=tr.match(/^\s*(\*)?\s*([A-D])\.\s*(.*)$/)){cq.mc.push({t:m[3],c:!!m[1]});md='mc'}
       else if(m=tr.match(/^\s*(\*)?\s*([a-d])\)\s*(.*)$/)){cq.tf.push({t:m[3],c:!!m[1]});md='tf'}
       else if(m=tr.match(/^\s*\*\s*(?:ĐA|KQ)\s*:\s*(.*)$/i)){cq.sa=m[1].split('|').map(s=>s.trim()).filter(Boolean);md='sa'}
       else if(m=tr.match(/^\s*\*\s*GT\s*:\s*(.*)$/i)){cq.exp=m[1];md='exp'}
-      else if(tr){if(md=='text')cq.text+=(cq.text?'\n':'')+tr;else if(md=='exp')cq.exp+='\n'+tr;else cq[md].at(-1).t+=' '+tr}
+      else if(tr){
+        if(md=='text')cq.text+=(cq.text?'\n':'')+tr.replace(/\s*\|\s*/g,'\n');
+        else if(md=='exp')cq.exp+='\n'+tr;
+        else if(md=='mc'||md=='tf')cq[md].at(-1).t+=' '+tr;
+      }
     }
   });
   if(cq)qs.push(cq);
-  return qs.map(o=>{
-    const x={text:o.text,exp:o.exp,group:o.group};
+  return qs.map((o,idx)=>{
+    const num=o.num||(idx+1);
+    const txt=o.text||`Chọn phương án đúng nhất để điền vào chỗ trống (${num}) trong đoạn văn:`;
+    const x={num,text:txt,exp:o.exp,group:o.group||''};
     if(o.mc.length>1)return{...x,type:'mc',opts:o.mc.map(a=>a.t),ans:'ABCD'[o.mc.findIndex(a=>a.c)]||''};
     if(o.tf.length>1)return{...x,type:'tf',opts:o.tf.map(a=>a.t),ans:o.tf.map(a=>a.c)};
     if(o.sa)return{...x,type:'sa',ans:o.sa};return null
@@ -90,22 +101,26 @@ function parse(t){
 
 const SAMPLE=`[ĐOẠN VĂN]
 Read the following passage and mark the letter A, B, C or D on your answer sheet.
-My sister went to _the_ bed _early_; _otherwise_ she _would have felt_ extremely tired.
+Reading about inspiring figures is essential. (1) ______ many young people know famous names, they often overlook the lessons hidden in these stories.
 [/ĐOẠN VĂN]
-Câu 1: Từ gạch chân nào sai?
+Câu 1: Chọn phương án đúng để điền vào chỗ trống (1):
+A. If
+B. However
+C. Because
+*D. Although
+*GT: "Although" (Mặc dù) dùng để nối hai mệnh đề tương phản.
+[ĐOẠN VĂN]
+[/ĐOẠN VĂN]
+Câu 2: Tìm lỗi sai: My sister went to _the_ bed _early_; _otherwise_ she _would have felt_ extremely tired.
 *A. the
 B. early
 C. otherwise
 D. would have felt
-*GT: Dùng "go to bed" không có mạo từ the.
-Câu 2: Đạo hàm của hàm số $y=x^3$ là:
-A. $x^2$
-*B. $3x^2$
-C. $3x$
-D. $x^3$`;
+*GT: Dùng "go to bed" không có mạo từ "the".`;
+
 async function seed(){if(S.users.length)return;await save('classes',{id:'c1',name:'12A1'});
  await save('users',{id:'u0',username:'admin',pass:'admin123',name:'Quản trị viên',classId:'c1',bio:'',avatar:'',role:'admin'});
- await save('quizzes',{id:'q1',title:'Đề mẫu - Toán & Anh',dur:10,classId:'',mode:'multi',shuffle:false,anti:true,show:true,qs:parse(SAMPLE)})}
+ await save('quizzes',{id:'q1',title:'Đề mẫu - Tiếng Anh 2026',dur:10,classId:'',mode:'multi',shuffle:false,anti:true,show:true,qs:parse(SAMPLE)})}
 // ===== Auth =====
 const GBTN=`<button type="button" onclick="gLogin()" class="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-white border border-slate-300 font-bold shadow-md hover:shadow-lg hover:-translate-y-px transition"><svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Đăng nhập với Google</button><div class="flex items-center gap-2 text-xs text-slate-400"><hr class="flex-1">hoặc dùng tài khoản lớp<hr class="flex-1"></div>`;
 const authH=()=>{const r=authMode=='reg';return `<div class="min-h-screen flex items-center justify-center p-4"><form onsubmit="return auth(event)" class="card fade w-full max-w-md space-y-3"><h1 class="text-2xl font-extrabold text-[#0891b2] text-center"><i class="fa-solid fa-graduation-cap"></i> LuyệnĐề Pro</h1>${GBTN}<input id="au" class="inp" placeholder="Tên đăng nhập" required><input id="ap" type="password" class="inp" placeholder="Mật khẩu" required>${r?`<input id="an" class="inp" placeholder="Họ và tên hiển thị" required><select id="ac" class="inp">${clsOpts()}</select><input id="ak" class="inp" placeholder="Mã nâng cấp Admin (nếu có)">`:''}<button class="btn w-full">${r?'Đăng ký':'Đăng nhập'}</button><p class="text-center text-sm text-slate-500 cursor-pointer" onclick="authMode='${r?'login':'reg'}';render()">${r?'Đã có tài khoản? Đăng nhập':'Chưa có tài khoản? Đăng ký'}</p></form></div>`};
@@ -131,20 +146,22 @@ function render(){$('#app').innerHTML=!me?authH():view=='exam'?examH():navH()+({
 const navH=()=>`<header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-200"><div class="max-w-5xl mx-auto flex flex-wrap items-center gap-2 p-3"><b class="text-[#0891b2] text-lg mr-auto cursor-pointer" onclick="go('home')"><i class="fa-solid fa-graduation-cap"></i> LuyệnĐề Pro</b><button class="btn b2" onclick="go('home')"><i class="fa fa-list-check"></i></button><button class="btn b2" onclick="go('lb')"><i class="fa fa-trophy"></i></button>${me.role=='admin'?`<button class="btn bg" onclick="quizForm()"><i class="fa fa-plus"></i> Tạo đề</button><button class="btn b2" onclick="clsMgr()"><i class="fa fa-users"></i> Lớp</button>`:''}<img src="${av(me)}" class="w-9 h-9 rounded-full cursor-pointer border-2 border-[#06b6d4] object-cover" onclick="profile()"><button class="btn b2" onclick="logout()"><i class="fa fa-right-from-bracket"></i></button></div></header><main class="max-w-5xl mx-auto p-3 fade">`;
 function homeH(){const qs=S.quizzes.filter(q=>me.role=='admin'||!q.classId||q.classId==me.classId);
  return `<div class="mb-4"><h2 class="text-2xl font-bold">Xin chào, ${esc(me.name)}</h2><p class="text-slate-500">Lớp hiện tại: <b class="text-[#059669]">${esc(cn(me.classId))}</b>${me.bio?` — <i>${esc(me.bio)}</i>`:''}</p></div><div class="grid md:grid-cols-2 gap-3">${qs.map(q=>{const rs=S.results.filter(r=>r.quizId==q.id&&r.userId==me.id),b=Math.max(0,...rs.map(r=>r.rank)),once=q.mode=='once'&&rs.length;
- return `<div class="card"><div class="flex justify-between"><h3 class="font-bold text-lg">${esc(q.title)}</h3>${me.role=='admin'?`<button class="text-red-500" onclick="delQ('${q.id}')"><i class="fa fa-trash"></i></button>`:''}</div><p class="text-sm text-slate-500 my-2"><i class="fa fa-clock"></i> ${q.dur} phút, ${q.qs.length} câu, ${q.mode=='once'?'kiểm tra (1 lần)':'luyện tập'}, ${q.classId?esc(cn(q.classId)):'tất cả lớp'}</p>${rs.length?`<p class="text-sm">Điểm xếp hạng cao nhất: <b class="text-[#059669]">${b}</b></p>`:''}<div class="flex gap-2 mt-3">${once?'':`<button class="btn" onclick="start('${q.id}')">Làm bài</button>`}${rs.length?`<button class="btn b2" onclick="review('${rs.at(-1).id}')">Xem lại</button>`:''}</div></div>`}).join('')||'<p class="text-slate-500">Chưa có đề thi nào dành cho lớp của bạn.</p>'}</div>`}
+ return `<div class="card"><div class="flex justify-between items-start gap-2"><h3 class="font-bold text-lg">${esc(q.title)}</h3>${me.role=='admin'?`<div class="flex gap-2 shrink-0"><button class="text-cyan-600 hover:text-cyan-800" title="Sửa đề" onclick="quizForm('${q.id}')"><i class="fa fa-pen"></i></button><button class="text-red-500 hover:text-red-700" title="Xóa đề" onclick="delQ('${q.id}')"><i class="fa fa-trash"></i></button></div>`:''}</div><p class="text-sm text-slate-500 my-2"><i class="fa fa-clock"></i> ${q.dur} phút, ${q.qs.length} câu, ${q.mode=='once'?'kiểm tra (1 lần)':'luyện tập'}, ${q.classId?esc(cn(q.classId)):'tất cả lớp'}</p>${rs.length?`<p class="text-sm">Điểm xếp hạng cao nhất: <b class="text-[#059669]">${b}</b></p>`:''}<div class="flex gap-2 mt-3">${once?'':`<button class="btn" onclick="start('${q.id}')">Làm bài</button>`}${rs.length?`<button class="btn b2" onclick="review('${rs.at(-1).id}')">Xem lại</button>`:''}</div></div>`}).join('')||'<p class="text-slate-500">Chưa có đề thi nào dành cho lớp của bạn.</p>'}</div>`}
 async function delQ(id){if(confirm('Xóa đề này?')){await del('quizzes',id);toast('Đã xóa đề');render()}}
 // ===== Làm bài =====
-function start(id){const q=S.quizzes.find(x=>x.id==id);let qs=q.qs.map((x,i)=>({...x,i,ord:[0,1,2,3]}));
+function start(id){const q=S.quizzes.find(x=>x.id==id);let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(q.shuffle){qs.forEach(x=>x.ord=sh(x.ord));qs=sh(qs)}
  ex={q,qs,cur:0,ans:{},flag:{},tabs:0,t0:Date.now(),last:0};view='exam';render();clearInterval(tm);tm=setInterval(tick,1000)}
 const left=()=>Math.max(0,ex.q.dur*60-Math.floor((Date.now()-ex.t0)/1000));
 function tick(){if(!ex)return;if(!left()){toast('Hết giờ, hệ thống tự nộp bài','err');return submit()}const e=$('#tm');if(e)e.textContent=fmt(left())}
-const palH=()=>ex.qs.map((x,k)=>{const a=ex.ans[x.i],d=Array.isArray(a)?a.some(v=>v!=null):(a!==undefined&&a!=='');return `<button onclick="ex.cur=${k};render()" class="py-2 rounded-lg border text-sm ${k==ex.cur?'border-[#06b6d4]':'border-slate-300'} ${ex.flag[x.i]?'bg-amber-500 text-slate-900':d?'bg-[#10b981] text-slate-900':''}">${k+1}</button>`}).join('');
-function examH(){const{q,qs,cur}=ex,x=qs[cur],a=ex.ans[x.i],n=qs.filter(y=>{const v=ex.ans[y.i];return Array.isArray(v)?v.some(z=>z!=null):(v!==undefined&&v!=='')}).length;let body='';
+const palH=()=>ex.qs.map((x,k)=>{const a=ex.ans[x.i],d=Array.isArray(a)?a.some(v=>v!=null):(a!==undefined&&a!=='');return `<button onclick="ex.cur=${k};render()" class="py-2 rounded-lg border text-sm ${k==ex.cur?'border-[#06b6d4] ring-2 ring-[#06b6d4]/30':'border-slate-300'} ${ex.flag[x.i]?'bg-amber-500 text-slate-900':d?'bg-[#10b981] text-slate-900':''}">${k+1}</button>`}).join('');
+function examH(){const{q,qs,cur}=ex,x=qs[cur],a=ex.ans[x.i],n=qs.filter(y=>{const v=ex.ans[y.i];return Array.isArray(v)?v.some(z=>z!=null):(v!==undefined&&v!=='')}).length;
+ const qTxt=x.text||`Chọn phương án đúng nhất để điền vào chỗ trống (${x.num}) trong đoạn văn:`;
+ let body='';
  if(x.type=='mc')body=x.ord.filter(o=>o<x.opts.length).map((o,p)=>`<button class="opt ${a===o?'sel':''}" onclick="ex.ans[${x.i}]=${o};render()"><b class="text-[#0891b2]">${'ABCD'[p]}.</b> ${rtf(x.opts[o])}</button>`).join('');
  else if(x.type=='tf')body=x.ord.filter(o=>o<x.opts.length).map((o,p)=>`<div class="opt flex items-center gap-2 justify-between flex-wrap"><span><b class="text-[#0891b2]">${'abcd'[p]})</b> ${rtf(x.opts[o])}</span><span class="flex gap-2">${[true,false].map(v=>`<button class="px-3 py-1 rounded-lg border ${a?.[o]===v?'sel':'border-slate-300'}" onclick="(ex.ans[${x.i}]=ex.ans[${x.i}]||[null,null,null,null])[${o}]=${v};render()">${v?'Đúng':'Sai'}</button>`).join('')}</span></div>`).join('');
  else body=`<input class="inp mt-3" placeholder="Nhập đáp án..." value="${esc(a||'')}" oninput="ex.ans[${x.i}]=this.value;$('#pal').innerHTML=palH()">`;
- return `<div class="max-w-5xl mx-auto p-3 fade"><div class="card flex items-center gap-3 flex-wrap"><b class="mr-auto">${esc(q.title)}</b>${q.anti?`<span class="text-amber-600 text-sm" title="Số lần rời màn hình"><i class="fa fa-eye"></i> <span id="tb">${ex.tabs}</span></span>`:''}<b id="tm" class="text-xl text-[#0891b2]">${fmt(left())}</b><button class="btn bg" onclick="if(confirm('Nộp bài ngay?'))submit()">Nộp bài</button></div><div class="h-2 bg-slate-200 rounded-full my-3 overflow-hidden"><div class="h-full bg-[#10b981] transition-all" style="width:${n/qs.length*100}%"></div></div><div class="grid md:grid-cols-[1fr_220px] gap-3"><div class="card"><div class="flex justify-between"><h3 class="font-bold text-[#0891b2] mb-2">Câu ${cur+1}/${qs.length}: ${{mc:'Trắc nghiệm',tf:'Đúng/Sai',sa:'Trả lời ngắn'}[x.type]}</h3><button onclick="ex.flag[${x.i}]=!ex.flag[${x.i}];render()" class="${ex.flag[x.i]?'text-amber-600':'text-slate-400'}"><i class="fa fa-flag"></i> Phân vân</button></div>${x.group?`<div class="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl whitespace-pre-line text-justify">${rtf(x.group)}</div>`:''}<p class="my-3 whitespace-pre-line font-medium">${rtf(x.text)}</p>${body}<div class="flex justify-between mt-5"><button class="btn b2" ${cur?'':'disabled'} onclick="ex.cur--;render()">Câu trước</button><button class="btn" ${cur<qs.length-1?'':'disabled'} onclick="ex.cur++;render()">Câu sau</button></div></div><div class="card h-fit"><p class="text-sm text-slate-500 mb-2">Đã làm ${n}/${qs.length}</p><div id="pal" class="grid grid-cols-5 gap-2">${palH()}</div></div></div></div>`}
+ return `<div class="max-w-5xl mx-auto p-3 fade"><div class="card flex items-center gap-3 flex-wrap"><b class="mr-auto">${esc(q.title)}</b>${q.anti?`<span class="text-amber-600 text-sm" title="Số lần rời màn hình"><i class="fa fa-eye"></i> <span id="tb">${ex.tabs}</span></span>`:''}<b id="tm" class="text-xl text-[#0891b2]">${fmt(left())}</b><button class="btn bg" onclick="if(confirm('Nộp bài ngay?'))submit()">Nộp bài</button></div><div class="h-2 bg-slate-200 rounded-full my-3 overflow-hidden"><div class="h-full bg-[#10b981] transition-all" style="width:${n/qs.length*100}%"></div></div><div class="grid md:grid-cols-[1fr_220px] gap-3"><div class="card"><div class="flex justify-between items-center mb-2"><h3 class="font-bold text-[#0891b2]">Câu ${cur+1}/${qs.length}: ${{mc:'Trắc nghiệm',tf:'Đúng/Sai',sa:'Trả lời ngắn'}[x.type]}</h3><button onclick="ex.flag[${x.i}]=!ex.flag[${x.i}];render()" class="${ex.flag[x.i]?'text-amber-600 font-semibold':'text-slate-400'}"><i class="fa fa-flag"></i> Phân vân</button></div>${x.group?`<div class="mb-4 p-4 bg-cyan-50/60 border border-cyan-200 rounded-xl whitespace-pre-line text-slate-800 leading-relaxed max-h-80 overflow-y-auto"><div class="text-xs font-bold uppercase tracking-wider text-cyan-700 mb-1"><i class="fa fa-book-open"></i> Nội dung bài đọc / Yêu cầu chung:</div>${rtf(x.group,x.num)}</div>`:''}<p class="my-3 whitespace-pre-line font-semibold text-slate-900">${rtf(qTxt)}</p>${body}<div class="flex justify-between mt-5"><button class="btn b2" ${cur?'':'disabled'} onclick="ex.cur--;render()">Câu trước</button><button class="btn" ${cur<qs.length-1?'':'disabled'} onclick="ex.cur++;render()">Câu sau</button></div></div><div class="card h-fit"><p class="text-sm text-slate-500 mb-2">Đã làm ${n}/${qs.length}</p><div id="pal" class="grid grid-cols-5 gap-2">${palH()}</div></div></div></div>`}
 const cheat=()=>{if(!ex||!ex.q.anti||Date.now()-ex.last<1500)return;ex.last=Date.now();ex.tabs++;toast(`Cảnh báo: bạn vừa rời khỏi màn hình làm bài (lần ${ex.tabs})`,'err');const e=$('#tb');if(e)e.textContent=ex.tabs};
 document.addEventListener('visibilitychange',()=>document.hidden&&cheat());addEventListener('blur',cheat);
 // ===== Chấm điểm =====
@@ -161,11 +178,11 @@ const canRev=r=>quizOf(r)?.show||me.role=='admin';
 const resH=()=>{const r=curR;return `<div class="card text-center max-w-md mx-auto space-y-2"><h2 class="text-xl font-bold">Đã nộp bài</h2><div class="text-5xl font-extrabold text-[#0891b2]">${r.rank}</div><p class="text-slate-500">Tổng điểm xếp hạng</p><p>Điểm gốc: <b>${r.base}</b>/10, thưởng tốc độ: <b class="text-[#059669]">+${r.speed}</b></p><p>Đúng ${r.ok}/${r.total} câu, thời gian ${fmt(r.time)}, chuyển tab ${r.tabs} lần</p><div class="flex gap-2 justify-center pt-2 flex-wrap">${canRev(r)?`<button class="btn" onclick="review('${r.id}')">Xem lại bài</button>`:''}<button class="btn b2" onclick="go('lb')">Xếp hạng</button><button class="btn b2" onclick="go('home')">Trang chủ</button></div></div>`};
 function review(id){curR=S.results.find(r=>r.id==id);view='rev';render()}
 function revH(){const r=curR,q=quizOf(r);if(!q||!canRev(r))return '<p>Đề này không cho phép xem lại đáp án.</p>';
- return `<h2 class="text-xl font-bold mb-3">Xem lại: ${esc(q.title)} (${r.base}/10)</h2>`+q.qs.map((x,i)=>{const a=r.answers[i];let b='';
+ return `<h2 class="text-xl font-bold mb-3">Xem lại: ${esc(q.title)} (${r.base}/10)</h2>`+q.qs.map((x,i)=>{const a=r.answers[i],qNum=x.num||(i+1),qTxt=x.text||`Chọn phương án đúng nhất để điền vào chỗ trống (${qNum}) trong đoạn văn:`;let b='';
   if(x.type=='mc')b=x.opts.map((o,k)=>`<div class="opt ${'ABCD'[k]==x.ans?'ok':a===k?'no':''}"><b>${'ABCD'[k]}.</b> ${rtf(o)}</div>`).join('');
   else if(x.type=='tf')b=x.opts.map((o,k)=>`<div class="opt ${a?.[k]===x.ans[k]?'ok':'no'}"><b>${'abcd'[k]})</b> ${rtf(o)}<br><span class="text-sm">Đáp án: <b>${x.ans[k]?'Đúng':'Sai'}</b>. Bạn chọn: ${a?.[k]==null?'chưa chọn':a[k]?'Đúng':'Sai'}</span></div>`).join('');
   else b=`<div class="opt ${a&&x.ans.some(v=>nz(v)==nz(a))?'ok':'no'}">Bạn trả lời: ${esc(a||'(trống)')}</div><div class="opt ok">Đáp án: ${esc(x.ans.join(' | '))}</div>`;
-  return `<div class="card mb-4"><b class="text-[#0891b2] mb-2 inline-block">Câu ${i+1}</b>${x.group?`<div class="mb-2 p-3 bg-slate-50 border border-slate-200 rounded-xl whitespace-pre-line text-sm text-justify">${rtf(x.group)}</div>`:''}<p class="whitespace-pre-line my-2 font-medium">${rtf(x.text)}</p>${b}${x.exp?`<div class="mt-3 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/40 whitespace-pre-line"><b>Lời giải:</b> ${rtf(x.exp)}</div>`:''}</div>`}).join('')+`<button class="btn b2" onclick="go('home')">Về trang chủ</button>`}
+  return `<div class="card mb-4"><b class="text-[#0891b2] mb-2 inline-block">Câu ${i+1}</b>${x.group?`<div class="mb-2 p-3 bg-cyan-50/60 border border-cyan-200 rounded-xl whitespace-pre-line text-sm leading-relaxed">${rtf(x.group,qNum)}</div>`:''}<p class="whitespace-pre-line my-2 font-semibold">${rtf(qTxt)}</p>${b}${x.exp?`<div class="mt-3 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/40 whitespace-pre-line"><b>Lời giải:</b> ${rtf(x.exp)}</div>`:''}</div>`}).join('')+`<button class="btn b2" onclick="go('home')">Về trang chủ</button>`}
 // ===== Xếp hạng & CSV =====
 const lbRows=()=>{const b={};S.results.filter(r=>r.quizId==lb.q&&(!lb.c||r.classId==lb.c)).forEach(r=>{if(!b[r.userId]||r.rank>b[r.userId].rank)b[r.userId]=r});return Object.values(b).sort((a,c)=>c.rank-a.rank)};
 function lbH(){if(!lb.q)lb.q=S.quizzes[0]?.id||'';const rows=lbRows();
@@ -173,12 +190,28 @@ function lbH(){if(!lb.q)lb.q=S.quizzes[0]?.id||'';const rows=lbRows();
 function csv(){const q=S.quizzes.find(x=>x.id==lb.q),h=['Hạng','Họ tên','Tài khoản','Lớp','Điểm xếp hạng','Điểm gốc','Thưởng tốc độ','Số câu đúng','Thời gian','Chuyển tab'];
  const s=[h,...lbRows().map((r,i)=>[i+1,r.name,S.users.find(u=>u.id==r.userId)?.username,cn(r.classId),r.rank,r.base,r.speed,r.ok,fmt(r.time),r.tabs])].map(a=>a.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
  const l=document.createElement('a');l.href=URL.createObjectURL(new Blob(['\ufeff'+s],{type:'text/csv;charset=utf-8'}));l.download=`bang-diem-${q?.title||'de'}.csv`;l.click()}
-// ===== Admin: tạo đề =====
-function quizForm(){modal(`<h3 class="text-xl font-bold mb-3">Tạo đề mới</h3><div class="grid gap-3 md:grid-cols-2"><input id="qt" class="inp md:col-span-2" placeholder="Tên đề thi"><input id="qd" type="number" class="inp" value="45" min="1" title="Thời gian (phút)"><select id="qc" class="inp"><option value="">Tất cả các lớp</option>${clsOpts()}</select><select id="qm" class="inp"><option value="multi">Luyện tập (làm nhiều lần)</option><option value="once">Kiểm tra (chỉ 1 lần)</option></select><div class="text-sm space-y-1"><label><input type="checkbox" id="q1"> Đảo thứ tự câu hỏi và đáp án</label><br><label><input type="checkbox" id="q2" checked> Chống gian lận (đếm chuyển tab)</label><br><label><input type="checkbox" id="q3" checked> Cho xem đáp án và lời giải</label></div></div><input type="file" accept=".txt" class="my-3 text-sm" onchange="readTxt(this)"><textarea id="qx" rows="10" class="inp font-mono text-sm" placeholder="[ĐOẠN VĂN]\nBài đọc hiểu... \n[/ĐOẠN VĂN]\n\nCâu 1: Từ gạch chân _the_ sai ở đâu?\nA. ...\n*B. ... (dấu * = đáp án đúng)"></textarea><div class="flex gap-2 mt-3"><button class="btn b2" onclick="prev()">Xem trước</button><button class="btn bg" onclick="saveQ()">Lưu đề</button></div><div id="pv" class="mt-3 space-y-2 text-sm"></div>`)}
+// ===== Admin: tạo / sửa đề =====
+function toRaw(qs){
+  let out='',lastG='';
+  qs.forEach((x,i)=>{
+    const g=x.group||'';
+    if(g!==lastG){out+=(out?'\n':'')+`[ĐOẠN VĂN]\n${g}\n[/ĐOẠN VĂN]\n`;lastG=g}
+    out+=(out?'\n':'')+`Câu ${x.num||(i+1)}: ${x.text}\n`;
+    if(x.type=='mc')x.opts.forEach((o,k)=>out+=`${'ABCD'[k]==x.ans?'*':''}${'ABCD'[k]}. ${o}\n`);
+    else if(x.type=='tf')x.opts.forEach((o,k)=>out+=`${x.ans[k]?'*':''}${'abcd'[k]}) ${o}\n`);
+    else if(x.type=='sa')out+=`*ĐA: ${x.ans.join(' | ')}\n`;
+    if(x.exp)out+=`*GT: ${x.exp}\n`;
+  });
+  return out.trim();
+}
+function quizForm(id=null){
+  editId=id;const q=id?S.quizzes.find(x=>x.id==id):null;
+  modal(`<h3 class="text-xl font-bold mb-3">${q?'Cập nhật đề thi':'Tạo đề mới'}</h3><div class="grid gap-3 md:grid-cols-2"><input id="qt" class="inp md:col-span-2" placeholder="Tên đề thi" value="${esc(q?.title||'')}"><input id="qd" type="number" class="inp" value="${q?.dur||45}" min="1" title="Thời gian (phút)"><select id="qc" class="inp"><option value="">Tất cả các lớp</option>${clsOpts(q?.classId)}</select><select id="qm" class="inp"><option value="multi" ${q?.mode=='once'?'':'selected'}>Luyện tập (làm nhiều lần)</option><option value="once" ${q?.mode=='once'?'selected':''}>Kiểm tra (chỉ 1 lần)</option></select><div class="text-sm space-y-1"><label><input type="checkbox" id="q1" ${q?.shuffle?'checked':''}> Đảo thứ tự câu hỏi và đáp án</label><br><label><input type="checkbox" id="q2" ${q?q.anti?'checked':'':'checked'}> Chống gian lận (đếm chuyển tab)</label><br><label><input type="checkbox" id="q3" ${q?q.show?'checked':'':'checked'}> Cho xem đáp án và lời giải</label></div></div><input type="file" accept=".txt" class="my-3 text-sm" onchange="readTxt(this)"><textarea id="qx" rows="10" class="inp font-mono text-sm" placeholder="[ĐOẠN VĂN]\nBài đọc hiểu... \n[/ĐOẠN VĂN]\n\nCâu 1: Từ gạch chân _the_ sai ở đâu?\nA. ...\n*B. ... (dấu * = đáp án đúng)">${esc(q?toRaw(q.qs):'')}</textarea><div class="flex gap-2 mt-3"><button class="btn b2" onclick="prev()">Xem trước</button><button class="btn bg" onclick="saveQ()">${q?'Lưu cập nhật':'Lưu đề'}</button></div><div id="pv" class="mt-3 space-y-2 text-sm"></div>`)
+}
 function readTxt(el){const f=el.files[0];if(f){const r=new FileReader();r.onload=()=>$('#qx').value=r.result;r.readAsText(f)}}
-function prev(){const p=parse($('#qx').value);$('#pv').innerHTML=`<b class="text-[#059669]">Đã nhận ${p.length} câu hỏi</b>`+p.map((x,i)=>`<div class="p-2 rounded-lg bg-slate-100"><b>Câu ${i+1}</b> [${x.type}] ${x.group?`<div class="text-xs text-slate-500 border-l-2 border-slate-400 pl-2 mb-1">${rtf(x.group).substring(0,100)}...</div>`:''}${rtf(x.text)}<br><span class="text-slate-500">${x.opts?x.opts.map((o,k)=>(x.type=='mc'?'ABCD'[k]+'. ':(x.ans[k]?'✔ ':'✘ '))+rtf(o)).join(' | '):''}</span><br>Đáp án: <b class="text-[#0891b2]">${esc(x.type=='tf'?x.ans.map(v=>v?'Đ':'S').join(' '):x.type=='mc'?(x.ans||'⚠ thiếu dấu *'):x.ans.join(' | '))}</b>${x.exp?' (có lời giải)':''}</div>`).join('');math()}
+function prev(){const p=parse($('#qx').value);$('#pv').innerHTML=`<b class="text-[#059669]">Đã nhận ${p.length} câu hỏi</b>`+p.map((x,i)=>`<div class="p-2 rounded-lg bg-slate-100"><b>Câu ${i+1}</b> [${x.type}] ${x.group?`<div class="text-xs text-cyan-700 bg-cyan-50 border-l-2 border-cyan-500 pl-2 py-1 my-1">${rtf(x.group,x.num).substring(0,140)}...</div>`:''}<div class="font-medium">${rtf(x.text)}</div><span class="text-slate-500">${x.opts?x.opts.map((o,k)=>(x.type=='mc'?'ABCD'[k]+'. ':(x.ans[k]?'✔ ':'✘ '))+rtf(o)).join(' | '):''}</span><br>Đáp án: <b class="text-[#0891b2]">${esc(x.type=='tf'?x.ans.map(v=>v?'Đ':'S').join(' '):x.type=='mc'?(x.ans||'⚠ thiếu dấu *'):x.ans.join(' | '))}</b>${x.exp?' (có lời giải)':''}</div>`).join('');math()}
 async function saveQ(){const qs=parse($('#qx').value),t=$('#qt').value.trim();if(!t||!qs.length)return toast('Cần nhập tên đề và ít nhất 1 câu hỏi hợp lệ','err');
- await save('quizzes',{id:uid(),title:t,dur:+$('#qd').value||45,classId:$('#qc').value,mode:$('#qm').value,shuffle:$('#q1').checked,anti:$('#q2').checked,show:$('#q3').checked,qs});modal('');toast(`Đã lưu đề (${qs.length} câu)`);render()}
+ await save('quizzes',{id:editId||uid(),title:t,dur:+$('#qd').value||45,classId:$('#qc').value,mode:$('#qm').value,shuffle:$('#q1').checked,anti:$('#q2').checked,show:$('#q3').checked,qs});modal('');toast(`Đã lưu đề (${qs.length} câu)`);render()}
 // ===== Admin: lớp học =====
 function clsMgr(){modal(`<h3 class="text-xl font-bold mb-3">Quản lý lớp</h3><div class="flex gap-2 mb-3"><input id="nc" class="inp" placeholder="Tên lớp mới"><button class="btn bg" onclick="addC()">Thêm</button></div>${S.classes.map(c=>{const m=S.users.filter(u=>u.classId==c.id);return `<div class="card mb-2"><div class="flex gap-2 items-center"><b class="mr-auto">${esc(c.name)} <span class="text-slate-500 text-sm">(${m.length} thành viên)</span></b><button class="btn b2" onclick="renC('${c.id}')"><i class="fa fa-pen"></i></button><button class="btn br" onclick="delC('${c.id}')"><i class="fa fa-trash"></i></button></div><p class="text-sm text-slate-500 mt-1">${m.map(u=>esc(u.name)).join(', ')||'Chưa có thành viên'}</p></div>`}).join('')}`)}
 async function addC(){const n=$('#nc').value.trim();if(!n)return;await save('classes',{id:uid(),name:n});toast('Đã thêm lớp');clsMgr()}
