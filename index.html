@@ -157,12 +157,12 @@ async function finG(u){u=u||pend;if(!u.classId&&$('#gc'))u.classId=$('#gc').valu
 function render(){
  const app=$('#app');
  const y=window.scrollY;
- app.innerHTML=!me?authH():view=='exam'?examH():navH()+({home:homeH,lb:lbH,res:resH,rev:revH}[view])()+'</main>';
+ app.innerHTML=!me?authH():view=='exam'?examH():navH()+({home:homeH,lb:lbH,history:histH,res:resH,rev:revH}[view])()+'</main>';
  math();
  // Replacing a view should not unexpectedly jump the page to the top.
  requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}));
 }
-const navH=()=>`<header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#e5e8e3]"><div class="max-w-5xl mx-auto flex flex-wrap items-center gap-2 p-3"><b class="text-[#176b56] text-lg mr-auto cursor-pointer" onclick="go('home')"><i class="fa-solid fa-graduation-cap"></i> LuyệnĐề Pro</b><button class="btn b2" onclick="go('home')"><i class="fa fa-list-check"></i></button><button class="btn b2" onclick="go('lb')"><i class="fa fa-trophy"></i></button>${me.role=='admin'?`<button class="btn bg" onclick="quizForm()"><i class="fa fa-plus"></i> Tạo đề</button><button class="btn b2" onclick="clsMgr()"><i class="fa fa-users"></i> Lớp</button>`:''}<img src="${av(me)}" class="w-9 h-9 rounded-full cursor-pointer border-2 border-[#438a72] object-cover" onclick="profile()"><button class="btn b2" onclick="logout()"><i class="fa fa-right-from-bracket"></i></button></div></header><main class="max-w-5xl mx-auto p-3">`;
+const navH=()=>`<header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#e5e8e3]"><div class="max-w-5xl mx-auto flex flex-wrap items-center gap-2 p-3"><b class="text-[#176b56] text-lg mr-auto cursor-pointer" onclick="go('home')"><i class="fa-solid fa-graduation-cap"></i> LuyệnĐề Pro</b><button class="btn b2" onclick="go('home')"><i class="fa fa-list-check"></i></button><button class="btn b2" onclick="go('lb')" title="Xếp hạng"><i class="fa fa-trophy"></i></button><button class="btn b2" onclick="go('history')" title="Lịch sử làm bài"><i class="fa fa-clock-rotate-left"></i><span class="hidden sm:inline ml-1">Lịch sử</span></button>${me.role=='admin'?`<button class="btn bg" onclick="quizForm()"><i class="fa fa-plus"></i> Tạo đề</button><button class="btn b2" onclick="clsMgr()"><i class="fa fa-users"></i> Lớp</button>`:''}<img src="${av(me)}" class="w-9 h-9 rounded-full cursor-pointer border-2 border-[#438a72] object-cover" onclick="profile()"><button class="btn b2" onclick="logout()"><i class="fa fa-right-from-bracket"></i></button></div></header><main class="max-w-5xl mx-auto p-3">`;
 function homeH(){const qs=S.quizzes.filter(q=>me.role=='admin'||!q.classId||q.classId==me.classId);
  return `<div class="mb-4"><h2 class="text-2xl font-bold">Xin chào, ${esc(me.name)}</h2><p class="text-slate-500">Lớp hiện tại: <b class="text-[#287653]">${esc(cn(me.classId))}</b>${me.bio?` — <i>${esc(me.bio)}</i>`:''}</p></div><div class="grid md:grid-cols-2 gap-3">${qs.map(q=>{const rs=S.results.filter(r=>r.quizId==q.id&&r.userId==me.id),b=Math.max(0,...rs.map(r=>r.rank)),once=q.mode=='once'&&rs.length;
  return `<div class="card"><div class="flex justify-between items-start gap-2"><h3 class="font-bold text-lg">${esc(q.title)}</h3>${me.role=='admin'?`<div class="flex gap-2 shrink-0"><button class="text-cyan-600 hover:text-cyan-800" title="Sửa đề" onclick="quizForm('${q.id}')"><i class="fa fa-pen"></i></button><button class="text-red-500 hover:text-red-700" title="Xóa đề" onclick="delQ('${q.id}')"><i class="fa fa-trash"></i></button></div>`:''}</div><p class="text-sm text-slate-500 my-2"><i class="fa fa-clock"></i> ${q.dur} phút, ${q.qs.length} câu, ${q.mode=='once'?'kiểm tra (1 lần)':'luyện tập'}, ${q.classId?esc(cn(q.classId)):'tất cả lớp'}</p>${rs.length?`<p class="text-sm">Điểm xếp hạng cao nhất: <b class="text-[#287653]">${b}</b></p>`:''}<div class="flex gap-2 mt-3">${once?'':`<button class="btn" onclick="start('${q.id}')">Làm bài</button>`}${rs.length?`<button class="btn b2" onclick="review('${rs.at(-1).id}')">Xem lại</button>`:''}</div></div>`}).join('')||'<p class="text-slate-500">Chưa có đề thi nào dành cho lớp của bạn.</p>'}</div>`}
@@ -194,7 +194,7 @@ async function submit(){if(!ex)return;clearInterval(tm);const{q}=ex,t=Math.min(q
  const r={id:uid(),quizId:q.id,userId:me.id,name:me.name,classId:me.classId,answers:ex.ans,base:g.base,speed:sp,rank:+(g.base+sp).toFixed(2),ok:g.ok,total:q.qs.length,time:t,tabs:ex.tabs,ts:Date.now()};
  ex=null;await save('results',r);curR=r;view='res';render()}
 const canRev=r=>quizOf(r)?.show||me.role=='admin';
-const resH=()=>{const r=curR;return `<div class="card text-center max-w-md mx-auto space-y-2"><h2 class="text-xl font-bold">Đã nộp bài</h2><div class="text-5xl font-extrabold text-[#176b56]">${r.rank}</div><p class="text-slate-500">Tổng điểm xếp hạng</p><p>Điểm gốc: <b>${r.base}</b>/10, thưởng tốc độ: <b class="text-[#287653]">+${r.speed}</b></p><p>Đúng ${r.ok}/${r.total} câu, thời gian ${fmt(r.time)}, chuyển tab ${r.tabs} lần</p><div class="flex gap-2 justify-center pt-2 flex-wrap">${canRev(r)?`<button class="btn" onclick="review('${r.id}')">Xem lại bài</button>`:''}<button class="btn b2" onclick="go('lb')">Xếp hạng</button><button class="btn b2" onclick="go('home')">Trang chủ</button></div></div>`};
+const resH=()=>{const r=curR;return `<div class="card text-center max-w-md mx-auto space-y-2"><h2 class="text-xl font-bold">Đã nộp bài</h2><div class="text-5xl font-extrabold text-[#176b56]">${r.rank}</div><p class="text-slate-500">Tổng điểm xếp hạng</p><p>Điểm gốc: <b>${r.base}</b>/10, thưởng tốc độ: <b class="text-[#287653]">+${r.speed}</b></p><p>Đúng ${r.ok}/${r.total} câu, thời gian ${fmt(r.time)}, chuyển tab ${r.tabs} lần</p><div class="flex gap-2 justify-center pt-2 flex-wrap">${canRev(r)?`<button class="btn" onclick="review('${r.id}')">Xem lại bài</button>`:''}<button class="btn b2" onclick="go('history')">Lịch sử làm bài</button><button class="btn b2" onclick="go('lb')">Xếp hạng</button><button class="btn b2" onclick="go('home')">Trang chủ</button></div></div>`};
 function review(id){curR=S.results.find(r=>r.id==id);view='rev';render()}
 function revH(){const r=curR,q=quizOf(r);if(!q||!canRev(r))return '<p>Đề này không cho phép xem lại đáp án.</p>';
  return `<h2 class="text-xl font-bold mb-3">Xem lại: ${esc(q.title)} (${r.base}/10)</h2>`+q.qs.map((x,i)=>{const a=r.answers[i],qNum=x.num||(i+1),qTxt=x.text||`Chọn phương án đúng nhất để điền vào chỗ trống (${qNum}) trong đoạn văn:`;let b='';
@@ -202,6 +202,46 @@ function revH(){const r=curR,q=quizOf(r);if(!q||!canRev(r))return '<p>Đề này
   else if(x.type=='tf')b=x.opts.map((o,k)=>`<div class="opt ${a?.[k]===x.ans[k]?'ok':'no'}"><b>${'abcd'[k]})</b> ${rtf(o)}<br><span class="text-sm">Đáp án: <b>${x.ans[k]?'Đúng':'Sai'}</b>. Bạn chọn: ${a?.[k]==null?'chưa chọn':a[k]?'Đúng':'Sai'}</span></div>`).join('');
   else b=`<div class="opt ${a&&x.ans.some(v=>nz(v)==nz(a))?'ok':'no'}">Bạn trả lời: ${esc(a||'(trống)')}</div><div class="opt ok">Đáp án: ${esc(x.ans.join(' | '))}</div>`;
   return `<div class="card mb-4"><b class="text-[#176b56] mb-2 inline-block">Câu ${i+1}</b>${x.group?`<div class="mb-2 p-3 bg-[#f3f7f3] border border-[#dce5dc] rounded-xl whitespace-pre-line text-sm leading-relaxed">${rtf(x.group,qNum)}</div>`:''}<p class="whitespace-pre-line my-2 font-semibold">${rtf(qTxt)}</p>${b}${x.exp?`<div class="mt-3 p-3 rounded-xl bg-[#f3f7f3] border border-[#a9c8b5]/40 whitespace-pre-line"><b>Lời giải:</b> ${rtf(x.exp)}</div>`:''}</div>`}).join('')+`<button class="btn b2" onclick="go('home')">Về trang chủ</button>`}
+// ===== Lịch sử làm bài =====
+function histH(){
+ const rows=S.results
+  .filter(r=>r.userId==me.id)
+  .sort((a,b)=>(b.ts||0)-(a.ts||0));
+ const dateFmt=ts=>ts?new Date(ts).toLocaleString('vi-VN',{dateStyle:'medium',timeStyle:'short'}):'Không rõ thời gian';
+ return `<section class="mb-5">
+  <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+   <div><p class="text-xs uppercase tracking-widest text-[#638071] font-bold mb-1">CÁ NHÂN</p><h2 class="text-2xl font-bold">Lịch sử làm bài</h2><p class="text-sm text-slate-500 mt-1">Các lần làm bài đã nộp được lưu lại để bạn xem lại tiến độ.</p></div>
+   <div class="rounded-xl border border-[#dce5dc] bg-white px-4 py-3"><div class="text-xs text-slate-500">Tổng lượt đã nộp</div><div class="text-2xl font-bold text-[#176b56]">${rows.length}</div></div>
+  </div>
+  ${rows.length?`<div class="space-y-3">${rows.map((r,i)=>{
+   const q=quizOf(r),can=!!q&&canRev(r);
+   return `<article class="card">
+    <div class="flex flex-wrap items-start gap-3">
+     <div class="w-11 h-11 rounded-xl bg-[#edf4ef] text-[#176b56] flex items-center justify-center shrink-0"><i class="fa fa-file-circle-check text-lg"></i></div>
+     <div class="flex-1 min-w-[180px]">
+      <div class="font-bold text-base">${esc(q?.title||'Đề thi không còn tồn tại')}</div>
+      <div class="text-sm text-slate-500 mt-1"><i class="fa fa-calendar-days mr-1"></i>${dateFmt(r.ts)}</div>
+      <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600 mt-3">
+       <span><i class="fa fa-circle-check text-[#438a72] mr-1"></i>Đúng <b>${r.ok??0}/${r.total??0}</b></span>
+       <span><i class="fa fa-stopwatch mr-1"></i>${fmt(r.time||0)}</span>
+       <span><i class="fa fa-arrow-right-arrow-left mr-1"></i>Chuyển tab: ${r.tabs||0}</span>
+      </div>
+     </div>
+     <div class="text-right min-w-[82px]">
+      <div class="text-2xl font-extrabold text-[#176b56]">${Number(r.rank||0).toFixed(2)}</div>
+      <div class="text-xs text-slate-500">Điểm xếp hạng</div>
+      <div class="text-xs text-slate-500 mt-1">Điểm gốc ${Number(r.base||0).toFixed(2)}/10</div>
+     </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-[#edf0eb]">
+     ${can?`<button class="btn b2" onclick="review('${r.id}')"><i class="fa fa-book-open mr-1"></i> Xem lại bài</button>`:`<span class="text-xs text-slate-500 self-center">Không có đáp án xem lại cho lượt này.</span>`}
+     ${q&&q.mode!=='once'?`<button class="btn" onclick="start('${q.id}')"><i class="fa fa-rotate-right mr-1"></i> Làm lại đề</button>`:''}
+    </div>
+   </article>`;
+  }).join('')}</div>`:`<div class="card text-center py-12"><div class="w-14 h-14 mx-auto rounded-2xl bg-[#edf4ef] text-[#638071] flex items-center justify-center text-xl mb-3"><i class="fa fa-clock-rotate-left"></i></div><h3 class="font-bold text-lg">Chưa có lịch sử làm bài</h3><p class="text-sm text-slate-500 mt-1 mb-4">Sau khi nộp bài, kết quả sẽ xuất hiện ở đây.</p><button class="btn" onclick="go('home')">Tìm đề để làm</button></div>`}
+ </section>`;
+}
+
 // ===== Xếp hạng & CSV =====
 const lbRows=()=>{const b={};S.results.filter(r=>r.quizId==lb.q&&(!lb.c||r.classId==lb.c)).forEach(r=>{if(!b[r.userId]||r.rank>b[r.userId].rank)b[r.userId]=r});return Object.values(b).sort((a,c)=>c.rank-a.rank)};
 function lbH(){if(!lb.q)lb.q=S.quizzes[0]?.id||'';const rows=lbRows();
