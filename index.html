@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EduSpace</title>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>dz1stVN</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
@@ -50,8 +50,12 @@ button,input,select,textarea{font:inherit}
 .tgl{display:inline-flex;align-items:center;padding:3px;border-radius:999px;background:var(--mu);border:1px solid var(--bd);flex-shrink:0}
 .tgl span{width:1.9rem;height:1.9rem;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--tx2);font-size:.8rem;transition:background-color .15s,color .15s}
 html:not(.dark) .tgl span:first-child,html.dark .tgl span:last-child{background:var(--sf);color:var(--ac-t);box-shadow:0 1px 3px rgb(16 28 59/.2)}
+.ed[data-t=code] #edR{display:none}.ed[data-t=pv] #edL{display:none}
+@media(min-width:1024px){.ed #edL{display:flex!important}.ed #edR{display:block!important}}
+.ed textarea{background:var(--sf);color:var(--tx);tab-size:2;white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto}
 </style><script>document.documentElement.classList.toggle('dark',(localStorage.getItem('qz_theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))=='dark')</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f66ff'/%3E%3Cpath fill='%23fff' d='M32 13 5 26l27 13 27-13z'/%3E%3Cpath fill='%23fff' fill-opacity='.85' d='M16 35v10c0 5 7 9 16 9s16-4 16-9V35L32 43z'/%3E%3Cpath stroke='%23fff' stroke-width='3' stroke-linecap='round' d='M56 27v14'/%3E%3C/svg%3E">
 </head>
 <body><div id="app"><div class="flex items-center justify-center min-h-screen text-slate-500"><i class="fa fa-circle-notch fa-spin mr-2"></i> Đang tải dữ liệu...</div></div><div id="modal"></div><div id="toast" class="fixed top-3 right-3 z-50 space-y-2"></div>
 <script>
@@ -97,9 +101,9 @@ const modal=(h,k)=>{$('#modal').innerHTML=h?`<div class="fixed inset-0 bg-slate-
 let me=null,view='dash',ex=null,tm,curR,newAv,authMode='login',lb={q:'',c:''},editId=null;
 
 // ===== Parser đề thi chuẩn cấu trúc mới (Hỗ trợ [ĐOẠN VĂN], Cloze Test, Sắp xếp, Gạch chân) =====
-function parse(t){
+function parse(t,keepL){
   const qs=[];let cq=null,cg='',ig=false,md='text',m;
-  t.replace(/\r/g,'').split('\n').forEach(ln=>{
+  t.replace(/\r/g,'').split('\n').forEach((ln,li)=>{
     const tr=ln.trim();
     if(/^\[ĐOẠN VĂN\]$/i.test(tr)){ig=true;cg='';return}
     if(/^\[\/ĐOẠN VĂN\]$/i.test(tr)){ig=false;return}
@@ -109,9 +113,9 @@ function parse(t){
       const qNum=m[1],rawTxt=m[2].replace(/\s*\|\s*/g,'\n').trim();
       cq={num:qNum,text:rawTxt,mc:[],tf:[],sa:null,exp:'',group:cg};md='text';
     }else if(cq){
-      if(m=tr.match(/^\s*(\*)?\s*([A-D])\.\s*(.*)$/)){cq.mc.push({t:m[3],c:!!m[1]});md='mc'}
-      else if(m=tr.match(/^\s*(\*)?\s*([a-d])\)\s*(.*)$/)){cq.tf.push({t:m[3],c:!!m[1]});md='tf'}
-      else if(m=tr.match(/^\s*\*\s*(?:ĐA|KQ)\s*:\s*(.*)$/i)){cq.sa=m[1].split('|').map(s=>s.trim()).filter(Boolean);md='sa'}
+      if(m=tr.match(/^\s*(\*)?\s*([A-D])\.\s*(.*)$/)){cq.mc.push({t:m[3],c:!!m[1],L:li});md='mc'}
+      else if(m=tr.match(/^\s*(\*)?\s*([a-d])\)\s*(.*)$/)){cq.tf.push({t:m[3],c:!!m[1],L:li});md='tf'}
+      else if(m=tr.match(/^\s*\*\s*(?:ĐA|KQ)\s*:\s*(.*)$/i)){cq.saL=li;cq.sa=m[1].split('|').map(s=>s.trim()).filter(Boolean);md='sa'}
       else if(m=tr.match(/^\s*\*\s*GT\s*:\s*(.*)$/i)){cq.exp=m[1];md='exp'}
       else if(tr){
         if(md=='text')cq.text+=(cq.text?'\n':'')+tr.replace(/\s*\|\s*/g,'\n');
@@ -124,7 +128,7 @@ function parse(t){
   return qs.map((o,idx)=>{
     const num=o.num||(idx+1);
     const txt=o.text||`Chọn phương án đúng nhất để điền vào chỗ trống (${num}) trong đoạn văn:`;
-    const x={num,text:txt,exp:o.exp,group:o.group||''};
+    const x={num,text:txt,exp:o.exp,group:o.group||'',...(keepL?{_L:{mc:o.mc.map(a=>a.L),tf:o.tf.map(a=>a.L),sa:o.saL}}:{})};
     if(o.mc.length>1)return{...x,type:'mc',opts:o.mc.map(a=>a.t),ans:'ABCD'[o.mc.findIndex(a=>a.c)]||''};
     if(o.tf.length>1)return{...x,type:'tf',opts:o.tf.map(a=>a.t),ans:o.tf.map(a=>a.c)};
     if(o.sa)return{...x,type:'sa',ans:o.sa};return null
@@ -155,13 +159,13 @@ async function seed(){if(S.users.length)return;await save('classes',{id:'c1',nam
  await save('quizzes',{id:'q1',title:'Đề mẫu - Tiếng Anh 2026',dur:10,classId:'',mode:'multi',shuffle:false,anti:true,show:true,qs:parse(SAMPLE)})}
 // ===== Auth =====
 const GBTN=`<button type="button" onclick="gLogin()" class="btn b2 w-full flex items-center justify-center gap-2.5" style="padding:.6rem"><svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Đăng nhập với Google</button><div class="flex items-center gap-2 text-xs text-slate-400"><hr class="flex-1">hoặc dùng tài khoản lớp<hr class="flex-1"></div>`;
-const authH=()=>{const r=authMode=='reg';return `${tbtn('fixed top-3 right-3')}<div class="min-h-screen flex items-center justify-center p-4"><form onsubmit="return auth(event)" class="card w-full max-w-md space-y-3"><div class="text-center mb-1"><div class="w-10 h-10 mx-auto rounded-xl flex items-center justify-center mb-3" style="background:var(--ac);color:#fff"><i class="fa fa-graduation-cap"></i></div><h1 class="text-xl font-semibold tracking-tight">${r?'Tạo tài khoản':'Đăng nhập vào EduSpace'}</h1><p class="text-sm text-slate-500 mt-1">Luyện đề và quản lý lớp học trực tuyến</p></div>${GBTN}<input id="au" class="inp" placeholder="Tên đăng nhập" required><input id="ap" type="password" class="inp" placeholder="Mật khẩu" required>${r?`<input id="an" class="inp" placeholder="Họ và tên hiển thị" required><select id="ac" class="inp">${clsOpts()}</select><input id="ak" class="inp" placeholder="Mã nâng cấp Admin (nếu có)">`:''}<button class="btn w-full">${r?'Đăng ký':'Đăng nhập'}</button><p class="text-center text-sm text-slate-500 cursor-pointer" onclick="authMode='${r?'login':'reg'}';render()">${r?'Đã có tài khoản? Đăng nhập':'Chưa có tài khoản? Đăng ký'}</p></form></div>`};
+const authH=()=>{const r=authMode=='reg';return `${tbtn('fixed top-3 right-3')}<div class="min-h-screen flex items-center justify-center p-4"><form onsubmit="return auth(event)" class="card w-full max-w-md space-y-3"><div class="text-center mb-1"><div class="w-10 h-10 mx-auto rounded-xl flex items-center justify-center mb-3" style="background:var(--ac);color:#fff"><i class="fa fa-graduation-cap"></i></div><h1 class="text-xl font-semibold tracking-tight">${r?'Tạo tài khoản':'Đăng nhập vào dz1stVN'}</h1><p class="text-sm text-slate-500 mt-1">Luyện đề và quản lý lớp học trực tuyến</p></div>${GBTN}<input id="au" class="inp" placeholder="Tên đăng nhập" required><input id="ap" type="password" class="inp" placeholder="Mật khẩu" required>${r?`<input id="an" class="inp" placeholder="Họ và tên hiển thị" required><select id="ac" class="inp">${clsOpts()}</select><input id="ak" class="inp" placeholder="Mã nâng cấp Admin (nếu có)">`:''}<button class="btn w-full">${r?'Đăng ký':'Đăng nhập'}</button><p class="text-center text-sm text-slate-500 cursor-pointer" onclick="authMode='${r?'login':'reg'}';render()">${r?'Đã có tài khoản? Đăng nhập':'Chưa có tài khoản? Đăng ký'}</p></form></div>`};
 async function auth(e){e.preventDefault();const u=$('#au').value.trim().toLowerCase(),p=$('#ap').value;
  if(authMode=='login'){const x=S.users.find(x=>x.username==u&&x.pass==p);if(!x)return toast('Sai tên đăng nhập hoặc mật khẩu','err');login(x)}
  else{if(S.users.some(x=>x.username==u))return toast('Tên đăng nhập đã tồn tại','err');
   const x={id:uid(),username:u,pass:p,name:$('#an').value.trim(),classId:$('#ac').value,bio:'',avatar:'',role:(u=='admin'||$('#ak').value.trim()=='ADMINVIP')?'admin':'student'};
   await save('users',x);login(x)}return false}
-function login(x){me=x;localStorage.setItem('qz_me',x.id);view='dash';toast('Xin chào, '+x.name);render()}
+function login(x){if(x.role=='banned'){fauth?.signOut();toast('Tài khoản của bạn đã bị khóa. Liên hệ quản trị viên.','err');return}me=x;localStorage.setItem('qz_me',x.id);view='dash';toast('Xin chào, '+x.name);render()}
 const logout=()=>{me=null;localStorage.removeItem('qz_me');fauth?.signOut();render()},go=v=>{view=v;window.scrollTo(0,0);render()};
 let pend;
 async function gLogin(){if(!fauth)return toast('Cần điền firebaseConfig và bật Google trong Firebase Authentication','err');
@@ -177,7 +181,7 @@ async function finG(u){u=u||pend;if(!u.classId&&$('#gc'))u.classId=$('#gc').valu
 const NAV=[['dash','fa-chart-pie','Tổng quan'],['home','fa-book-open','Đề thi'],['lb','fa-trophy','Xếp hạng']];
 const VT={dash:['dash','Tổng quan'],home:['home','Đề thi'],lb:['lb','Bảng xếp hạng'],history:['home','Lịch sử làm bài'],res:['home','Kết quả'],rev:['home','Xem lại bài']};
 const shellH=()=>`<div id="shell" class="flex min-h-screen ${localStorage.getItem('qz_sb')=='1'?'col':''}"><div id="bk" class="fixed inset-0 z-30 bg-black/40" onclick="sbToggle()"></div>
-<aside class="sb"><div class="flex items-center gap-2.5 px-1.5 pb-5"><div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm" style="background:var(--ac);color:#fff"><i class="fa fa-graduation-cap"></i></div><b class="lbl text-[17px] tracking-tight">EduSpace</b></div>
+<aside class="sb"><div class="flex items-center gap-2.5 px-1.5 pb-5"><div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm" style="background:var(--ac);color:#fff"><i class="fa fa-graduation-cap"></i></div><b class="lbl text-[17px] tracking-tight">dz1stVN</b></div>
 <nav class="flex-1 space-y-1">${NAV.map(([v,i,l])=>`<button class="nv" data-v="${v}" onclick="go('${v}')"><i class="fa ${i}"></i><span class="lbl">${l}</span></button>`).join('')}${me.role=='admin'?`<p class="lbl text-[11px] font-bold uppercase tracking-wider text-slate-400 px-3 pt-4 pb-1">Quản trị</p><button class="nv" onclick="quizForm()"><i class="fa fa-plus"></i><span class="lbl">Tạo đề mới</span></button><button class="nv" onclick="clsMgr()"><i class="fa fa-users"></i><span class="lbl">Quản lý lớp</span></button>`:''}</nav>
 <button class="nv" onclick="logout()"><i class="fa fa-right-from-bracket"></i><span class="lbl">Đăng xuất</span></button></aside>
 <div class="flex-1 min-w-0"><header class="top"><button class="ib" onclick="sbToggle()" title="Thu gọn menu"><i class="fa fa-bars"></i></button><span id="pt" class="text-sm font-medium mr-auto"></span>${tbtn()}<button class="flex items-center gap-2 ml-1" onclick="profile()"><img src="${av(me)}" class="w-8 h-8 rounded-full object-cover"><span class="hidden sm:block text-[13px] font-medium text-left leading-tight">${esc(me.name)}<small class="block font-normal text-slate-500">${me.role=='admin'?'Quản trị viên':'Học sinh'}</small></span></button></header><main id="main" class="p-4 md:p-6 max-w-6xl mx-auto"></main></div></div>`;
@@ -217,7 +221,7 @@ function homeH(){const qs=S.quizzes.filter(q=>me.role=='admin'||!q.classId||q.cl
  return `<p class="eyebrow mb-3">Đề thi · Lớp ${esc(cn(me.classId))}</p><h1 class="hero">Chọn đề<br><em>để bắt đầu.</em></h1><p class="text-slate-500 mt-3 mb-5 max-w-xl">${qs.length} đề được giao${me.bio?` · ${esc(me.bio)}`:''}. Làm bài, xem lại từng câu và theo dõi tiến bộ qua mỗi lượt.</p><div class="flex flex-wrap items-center gap-3 mb-4"><div class="seg flex-1" style="min-width:250px">${[['all','Tất cả'],['todo','Chưa làm'],['done','Đã làm']].map(([k,l])=>`<button class="${hf==k?'on':''}" onclick="hf='${k}';render()">${l}</button>`).join('')}</div>${me.role=='admin'?`<button class="btn" onclick="quizForm()"><i class="fa fa-plus mr-1.5"></i>Tạo đề mới</button>`:''}</div><div class="card" style="padding:0;overflow:hidden">${list.map(row).join('')||emp('fa-book-open','Không có đề nào trong mục này.')}</div>`}
 async function delQ(id){if(confirm('Xóa đề này?')){await del('quizzes',id);toast('Đã xóa đề');render()}}
 // ===== Làm bài =====
-function start(id){const q=S.quizzes.find(x=>x.id==id);let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
+async function start(id){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản của bạn đã bị khóa, không thể làm bài.','err');return logout()}const q=S.quizzes.find(x=>x.id==id);let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(q.shuffle){qs.forEach(x=>x.ord=sh(x.ord));qs=sh(qs)}
  ex={q,qs,cur:0,ans:{},flag:{},tabs:0,t0:Date.now(),last:0};view='exam';render();clearInterval(tm);tm=setInterval(tick,1000)}
 const left=()=>Math.max(0,ex.q.dur*60-Math.floor((Date.now()-ex.t0)/1000));
@@ -327,16 +331,75 @@ function toRaw(qs){
   });
   return out.trim();
 }
-function quizForm(id=null){
-  editId=id;const q=id?S.quizzes.find(x=>x.id==id):null;
-  modal(`<h3 class="text-xl font-bold mb-3">${q?'Cập nhật đề thi':'Tạo đề mới'}</h3><div class="grid gap-3 md:grid-cols-2"><input id="qt" class="inp md:col-span-2" placeholder="Tên đề thi" value="${esc(q?.title||'')}"><input id="qd" type="number" class="inp" value="${q?.dur||45}" min="1" title="Thời gian (phút)"><select id="qc" class="inp"><option value="">Tất cả các lớp</option>${clsOpts(q?.classId)}</select><select id="qm" class="inp"><option value="multi" ${q?.mode=='once'?'':'selected'}>Luyện tập (làm nhiều lần)</option><option value="once" ${q?.mode=='once'?'selected':''}>Kiểm tra (chỉ 1 lần)</option></select><div class="text-sm space-y-1"><label><input type="checkbox" id="q1" ${q?.shuffle?'checked':''}> Đảo thứ tự câu hỏi và đáp án</label><br><label><input type="checkbox" id="q2" ${q?q.anti?'checked':'':'checked'}> Chống gian lận (đếm chuyển tab)</label><br><label><input type="checkbox" id="q3" ${q?q.show?'checked':'':'checked'}> Cho xem đáp án và lời giải</label></div></div><input type="file" accept=".txt" class="my-3 text-sm" onchange="readTxt(this)"><textarea id="qx" rows="10" class="inp font-mono text-sm" placeholder="[ĐOẠN VĂN]\nBài đọc hiểu... \n[/ĐOẠN VĂN]\n\nCâu 1: Từ gạch chân _the_ sai ở đâu?\nA. ...\n*B. ... (dấu * = đáp án đúng)">${esc(q?toRaw(q.qs):'')}</textarea><div class="flex gap-2 mt-3"><button class="btn b2" onclick="prev()">Xem trước</button><button class="btn bg" onclick="saveQ()">${q?'Lưu cập nhật':'Lưu đề'}</button></div><div id="pv" class="mt-3 space-y-2 text-sm"></div>`)
-}
-function readTxt(el){const f=el.files[0];if(f){const r=new FileReader();r.onload=()=>$('#qx').value=r.result;r.readAsText(f)}}
-function prev(){const p=parse($('#qx').value);$('#pv').innerHTML=`<b class="text-[color:var(--ac-t)]">Đã nhận ${p.length} câu hỏi</b>`+p.map((x,i)=>`<div class="p-2 rounded-lg bg-slate-100"><b>Câu ${i+1}</b> [${x.type}] ${x.group?`<div class="text-xs text-[color:var(--ac-t)] bg-cyan-50 border-l-2 border-[color:var(--bd)] pl-2 py-1 my-1">${rtf(x.group,x.num).substring(0,140)}...</div>`:''}<div class="font-medium">${rtf(x.text)}</div><span class="text-slate-500">${x.opts?x.opts.map((o,k)=>(x.type=='mc'?'ABCD'[k]+'. ':(x.ans[k]?'✔ ':'✘ '))+rtf(o)).join(' | '):''}</span><br>Đáp án: <b class="text-[color:var(--ac-t)]">${esc(x.type=='tf'?x.ans.map(v=>v?'Đ':'S').join(' '):x.type=='mc'?(x.ans||'⚠ thiếu dấu *'):x.ans.join(' | '))}</b>${x.exp?' (có lời giải)':''}</div>`).join('');math()}
+let EP=[],edT=null,edInit='';
+const ED_SKEL=`[ĐOẠN VĂN]
+Read the following passage and mark the letter A, B, C or D to indicate the option that best fits each blank.
+Although (1) ______ people know this, they often forget (2) ______ it.
+[/ĐOẠN VĂN]
+Câu 1:
+A. few
+*B. many
+C. much
+D. every
+*GT: Lời giải chi tiết (tùy chọn).
+Câu 2:
+*A. about
+B. with
+C. in
+D. at
+
+Câu 3: Cho các nhận định sau:
+*a) Nhận định đúng
+b) Nhận định sai
+*c) Nhận định đúng
+d) Nhận định sai
+
+Câu 4: Tính $\\sqrt{25}\\div 2$.
+*ĐA: 2,5 | 2.5`;
+function quizForm(id=null){editId=id;const q=id?S.quizzes.find(x=>x.id==id):null,raw=q?toRaw(q.qs):'';
+ $('#modal').innerHTML=`<div class="ed fixed inset-0 z-40 flex flex-col" data-t="code" style="background:var(--bg)">
+ <header class="flex items-center gap-2 px-3 py-2.5 border-b border-[color:var(--bd)]" style="background:var(--sf)"><button class="ib" onclick="closeEd()" title="Đóng"><i class="fa fa-xmark"></i></button><b>${q?'Cập nhật đề thi':'Tạo đề mới'}</b><span id="edinfo" class="text-xs text-slate-500 ml-1"></span>
+  <div class="ml-auto flex items-center gap-2"><label class="btn b2 cursor-pointer"><i class="fa fa-file-arrow-up sm:mr-1.5"></i><span class="hidden sm:inline">Tải .txt</span><input type="file" accept=".txt" hidden onchange="readTxt(this)"></label><button class="btn b2" onclick="skel()"><i class="fa fa-wand-magic-sparkles sm:mr-1.5"></i><span class="hidden sm:inline">Khung mẫu</span></button><button class="btn" onclick="saveQ()">${q?'Lưu cập nhật':'Lưu đề'}</button></div></header>
+ <details class="px-4 py-2 border-b border-[color:var(--bd)]" ${q?'':'open'}><summary class="cursor-pointer text-sm font-medium">Cấu hình đề thi</summary>
+  <div class="grid gap-3 md:grid-cols-4 mt-3 pb-1"><input id="qt" class="inp md:col-span-2" placeholder="Tên đề thi" value="${esc(q?.title||'')}"><input id="qd" type="number" class="inp" value="${q?.dur||45}" min="1" title="Thời gian (phút)"><select id="qc" class="inp"><option value="">Tất cả các lớp</option>${clsOpts(q?.classId)}</select>
+  <select id="qm" class="inp"><option value="multi" ${q?.mode=='once'?'':'selected'}>Luyện tập (nhiều lần)</option><option value="once" ${q?.mode=='once'?'selected':''}>Kiểm tra (1 lần)</option></select>
+  <div class="text-sm md:col-span-3 flex flex-wrap gap-x-5 gap-y-1 items-center"><label><input type="checkbox" id="q1" ${q?.shuffle?'checked':''}> Đảo câu hỏi và đáp án</label><label><input type="checkbox" id="q2" ${q?q.anti?'checked':'':'checked'}> Chống gian lận</label><label><input type="checkbox" id="q3" ${q?q.show?'checked':'':'checked'}> Cho xem đáp án và lời giải</label></div></div></details>
+ <div class="seg lg:hidden mx-3 mt-3"><button class="on" data-k="code" onclick="edTab('code')">Soạn mã</button><button data-k="pv" onclick="edTab('pv')">Xem trước</button></div>
+ <div class="flex-1 min-h-0 grid lg:grid-cols-2 grid-rows-[minmax(0,1fr)] mt-3 lg:mt-0">
+  <section id="edR" class="min-h-0 overflow-auto p-4"><div id="pv"></div></section>
+  <section id="edL" class="min-h-0 flex-col lg:border-l border-[color:var(--bd)]"><div class="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 border-b border-[color:var(--bd)]">Mã đề</div><textarea id="qx" spellcheck="false" class="flex-1 min-h-0 w-full p-4 font-mono text-[13px] leading-6 outline-none resize-none" oninput="edPrev()" placeholder="Dán hoặc gõ đề vào đây..."></textarea></section></div></div>`;
+ edInit=raw;$('#qx').value=raw;edPrev(1)}
+const edTab=t=>{$('.ed').dataset.t=t;document.querySelectorAll('.ed .seg button').forEach(b=>b.classList.toggle('on',b.dataset.k==t));if(t=='pv')edPrev(1)};
+function closeEd(){if($('#qx').value!==edInit&&!confirm('Đóng và bỏ các thay đổi chưa lưu?'))return;$('#modal').innerHTML=''}
+const skel=()=>{if($('#qx').value.trim()&&!confirm('Thay nội dung hiện tại bằng khung mẫu?'))return;$('#qx').value=ED_SKEL;edPrev(1)};
+function readTxt(el){const f=el.files[0];if(f){const r=new FileReader();r.onload=()=>{$('#qx').value=r.result;edPrev(1)};r.readAsText(f)}}
+function edPrev(now){clearTimeout(edT);const run=()=>{const v=$('#qx').value;EP=parse(v,1);const h=(v.match(/^\s*Câu\s*\d+\s*[:.]/gim)||[]).length,r=$('#edR'),y=r.scrollTop;
+  $('#pv').innerHTML=edH();r.scrollTop=y;math();$('#edinfo').innerHTML=`${EP.length} câu`+(h>EP.length?` <span style="color:var(--wa-t)">· ${h-EP.length} câu chưa nhận diện (thiếu đáp án A–D, a–d hoặc *ĐA)</span>`:'')};now?run():edT=setTimeout(run,180)}
+function edH(){if(!EP.length)return `<div class="text-center py-16 text-slate-500"><i class="fa fa-wand-magic-sparkles text-2xl mb-3"></i><p>Bản xem trước xuất hiện khi bạn soạn đề ở khung mã.</p><button class="btn b2 mt-3" onclick="skel()">Chèn khung mẫu</button></div>`;
+ return `<p class="text-xs text-slate-500 mb-3"><i class="fa fa-hand-pointer mr-1"></i>Bấm vào đáp án để đặt đáp án đúng, mã bên trái tự cập nhật.</p>`+EP.map((x,i)=>{let b='';
+  if(x.type=='mc')b=(x.ans?'':`<p class="text-xs mb-1" style="color:var(--wa-t)">Chưa chọn đáp án đúng, bấm vào một đáp án.</p>`)+x.opts.map((o,k)=>`<button class="opt ${'ABCD'[k]==x.ans?'ok':''}" onclick="edMC(${i},${k})"><b>${'ABCD'[k]}.</b> ${rtf(o)}${'ABCD'[k]==x.ans?'<i class="fa fa-circle-check float-right mt-1"></i>':''}</button>`).join('');
+  else if(x.type=='tf')b=`<div class="rounded-xl border border-[color:var(--bd)] divide-y divide-[color:var(--bd)] overflow-hidden mt-2">${x.opts.map((o,k)=>`<div class="grid sm:grid-cols-[1fr_auto] gap-x-4 gap-y-2 items-center px-4 py-3"><div><b class="text-[color:var(--ac-t)]">${'abcd'[k]})</b> ${rtf(o)}</div><div class="flex gap-2 sm:w-[9.5rem]">${[true,false].map(v=>`<button class="flex-1 py-1.5 rounded-lg border font-medium ${x.ans[k]===v?'ok':'border-slate-300'}" onclick="edTF(${i},${k},${v})">${v?'Đúng':'Sai'}</button>`).join('')}</div></div>`).join('')}</div>`;
+  else b=`<input class="inp mt-2" value="${esc(x.ans.join(' | '))}" onchange="edSA(${i},this.value)" placeholder="Đáp án, nhiều cách viết cách nhau bởi |">`;
+  return `<div class="card mb-3" style="padding:1rem"><div class="flex items-center gap-2 mb-2"><b class="text-[color:var(--ac-t)]">Câu ${esc(x.num)}</b><span class="badge">${{mc:'Trắc nghiệm',tf:'Đúng/Sai',sa:'Trả lời ngắn'}[x.type]}</span></div>${x.group&&x.group!=EP[i-1]?.group?`<div class="mb-2 p-3 rounded-xl text-sm leading-relaxed whitespace-pre-line" style="background:var(--mu)">${rtf(x.group,x.num)}</div>`:''}<p class="whitespace-pre-line font-medium mb-1">${rtf(x.text)}</p>${b}${x.exp?`<div class="mt-2 text-xs p-2.5 rounded-lg whitespace-pre-line" style="background:var(--mu)"><b>Lời giải:</b> ${rtf(x.exp)}</div>`:''}</div>`}).join('')}
+// Bấm vào xem trước -> sửa dấu * / *ĐA trong mã
+function edTop(ta,n,lh){const cs=getComputedStyle(ta),m=document.createElement('div');m.style.cssText=`position:absolute;visibility:hidden;left:-9999px;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:${cs.font};line-height:${cs.lineHeight};padding:${cs.padding};width:${ta.clientWidth}px`;m.textContent=ta.value.split('\n').slice(0,n).join('\n')+(n?'\n':'')+'x';document.body.append(m);const t=m.scrollHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-lh;m.remove();return Math.max(0,t)}
+function edApply(ch,ln){const ta=$('#qx'),L=ta.value.replace(/\r/g,'').split('\n');ch.forEach(([n,f])=>{if(n!=null)L[n]=f(L[n])});const y=ta.scrollTop;ta.value=L.join('\n');ta.scrollTop=y;ta.scrollLeft=0;
+ const lh=parseFloat(getComputedStyle(ta).lineHeight)||22,top=edTop(ta,ln??ch[0][0],lh);if(top<ta.scrollTop||top>ta.scrollTop+ta.clientHeight-2*lh)ta.scrollTop=Math.max(0,top-ta.clientHeight/2);edPrev(1)}
+const edMC=(i,k)=>edApply(EP[i]._L.mc.map((n,j)=>[n,l=>l.replace(/^(\s*)\*?\s*(?=[A-D]\.)/,j==k?'$1*':'$1')]),EP[i]._L.mc[k]);
+const edTF=(i,k,v)=>edApply([[EP[i]._L.tf[k],l=>l.replace(/^(\s*)\*?\s*(?=[a-d]\))/,v?'$1*':'$1')]]);
+const edSA=(i,v)=>edApply([[EP[i]._L.sa,l=>l.replace(/^(\s*\*\s*(?:ĐA|KQ)\s*:\s*).*$/i,(m,a)=>a+v.trim())]]);
 async function saveQ(){const qs=parse($('#qx').value),t=$('#qt').value.trim();if(!t||!qs.length)return toast('Cần nhập tên đề và ít nhất 1 câu hỏi hợp lệ','err');
- await save('quizzes',{id:editId||uid(),title:t,dur:+$('#qd').value||45,classId:$('#qc').value,mode:$('#qm').value,shuffle:$('#q1').checked,anti:$('#q2').checked,show:$('#q3').checked,qs});modal('');toast(`Đã lưu đề (${qs.length} câu)`);render()}
+ const bad=qs.filter(x=>x.type=='mc'&&!x.ans).length;if(bad&&!confirm(`${bad} câu trắc nghiệm chưa chọn đáp án đúng. Vẫn lưu?`))return;
+ await save('quizzes',{id:editId||uid(),title:t,dur:+$('#qd').value||45,classId:$('#qc').value,mode:$('#qm').value,shuffle:$('#q1').checked,anti:$('#q2').checked,show:$('#q3').checked,qs});$('#modal').innerHTML='';toast(`Đã lưu đề (${qs.length} câu)`);render()}
 // ===== Admin: lớp học =====
-function clsMgr(){modal(`<h3 class="text-xl font-bold mb-3">Quản lý lớp</h3><div class="flex gap-2 mb-3"><input id="nc" class="inp" placeholder="Tên lớp mới"><button class="btn bg" onclick="addC()">Thêm</button></div>${S.classes.map(c=>{const m=S.users.filter(u=>u.classId==c.id);return `<div class="card mb-2"><div class="flex gap-2 items-center"><b class="mr-auto">${esc(c.name)} <span class="text-slate-500 text-sm">(${m.length} thành viên)</span></b><button class="btn b2" onclick="renC('${c.id}')"><i class="fa fa-pen"></i></button><button class="btn br" onclick="delC('${c.id}')"><i class="fa fa-trash"></i></button></div><p class="text-sm text-slate-500 mt-1">${m.map(u=>esc(u.name)).join(', ')||'Chưa có thành viên'}</p></div>`}).join('')}`)}
+let cmT='cls',cmQ='',cmC='';
+const ROLE={admin:'Quản trị',student:'Học sinh',banned:'Bị khóa'};
+const clsBody=()=>`<div class="flex gap-2 mb-3"><input id="nc" class="inp" placeholder="Tên lớp mới"><button class="btn bg" onclick="addC()">Thêm</button></div>${S.classes.map(c=>{const m=S.users.filter(u=>u.classId==c.id);return `<div class="card mb-2" style="padding:1rem"><div class="flex gap-2 items-center"><b class="mr-auto">${esc(c.name)} <span class="text-slate-500 text-sm font-normal">(${m.length} thành viên)</span></b><button class="btn b2" onclick="renC('${c.id}')"><i class="fa fa-pen"></i></button><button class="btn br" onclick="delC('${c.id}')"><i class="fa fa-trash"></i></button></div><p class="text-sm text-slate-500 mt-1">${m.map(u=>esc(u.name)).join(', ')||'Chưa có thành viên'}</p></div>`}).join('')}`;
+function usrRows(){const q=cmQ.trim().toLowerCase(),L=S.users.filter(u=>(!cmC||u.classId==cmC)&&(!q||(u.name+' '+u.username+' '+(u.email||'')).toLowerCase().includes(q)));
+ return L.map(u=>{const self=u.id==me.id,bn=u.role=='banned';return `<div class="flex flex-wrap items-center gap-3 py-3 border-b border-[color:var(--bd)] last:border-0"><img src="${av(u)}" class="w-9 h-9 rounded-full object-cover ${bn?'opacity-50':''}"><div class="flex-1 min-w-[150px]"><div class="font-medium">${esc(u.name)}${self?' <span class="badge">Bạn</span>':''}${bn?' <span class="badge warn">Bị khóa</span>':''}</div><div class="text-xs text-slate-500">${esc(u.email||u.username)} · ${esc(cn(u.classId))}</div></div><select class="inp" style="width:auto;padding:.4rem .7rem" ${self?'disabled title="Không thể đổi quyền của chính bạn"':''} onchange="setRole('${u.id}',this.value)">${Object.entries(ROLE).map(([k,l])=>`<option value="${k}" ${u.role==k?'selected':''}>${l}</option>`).join('')}</select><button class="btn b2" ${self?'disabled':''} onclick="setRole('${u.id}','${bn?'student':'banned'}')">${bn?'<i class="fa fa-lock-open mr-1.5"></i>Mở khóa':'<i class="fa fa-lock mr-1.5"></i>Khóa'}</button></div>`}).join('')||'<p class="text-center text-slate-500 py-8">Không có tài khoản nào.</p>'}
+const usrBody=()=>`<div class="flex flex-wrap gap-2 mb-2"><input class="inp flex-1" style="min-width:160px" placeholder="Tìm tên, tài khoản, email..." value="${esc(cmQ)}" oninput="cmQ=this.value;$('#ul').innerHTML=usrRows()"><select class="inp" style="width:auto" onchange="cmC=this.value;$('#ul').innerHTML=usrRows()"><option value="">Tất cả lớp</option>${clsOpts(cmC)}</select></div><p class="text-xs text-slate-500 mb-1">Tài khoản bị khóa không thể đăng nhập hay làm bài.</p><div id="ul" class="max-h-[55vh] overflow-auto">${usrRows()}</div>`;
+async function setRole(id,r){const u=S.users.find(x=>x.id==id);if(!u||u.id==me.id)return;u.role=r;await save('users',u);toast(`${u.name}: ${ROLE[r]}`);$('#ul').innerHTML=usrRows()}
+function clsMgr(t){if(t)cmT=t;modal(`<h3 class="text-xl font-semibold mb-3">Quản lý lớp</h3><div class="seg mb-4"><button class="${cmT=='cls'?'on':''}" onclick="clsMgr('cls')">Lớp học</button><button class="${cmT=='usr'?'on':''}" onclick="clsMgr('usr')">Tài khoản (${S.users.length})</button></div>${cmT=='cls'?clsBody():usrBody()}`)}
 async function addC(){const n=$('#nc').value.trim();if(!n)return;await save('classes',{id:uid(),name:n});toast('Đã thêm lớp');clsMgr()}
 async function renC(id){const c=S.classes.find(x=>x.id==id),n=prompt('Tên lớp mới:',c.name);if(n?.trim()){c.name=n.trim();await save('classes',c);toast('Đã đổi tên lớp');clsMgr();render()}}
 async function delC(id){if(!confirm('Xóa lớp này?'))return;for(const u of S.users.filter(u=>u.classId==id)){u.classId='';await save('users',u)}await del('classes',id);toast('Đã xóa lớp');clsMgr();render()}
@@ -349,5 +412,5 @@ async function saveP(){const n=$('#pn').value.trim();if(!n)return toast('Họ t�
  if(newAv)me.avatar=newAv;if($('#pp').value)me.pass=$('#pp').value;await save('users',me);modal('');toast('Đã cập nhật hồ sơ');render()}
 // ===== Khởi động =====
 (async()=>{try{await load()}catch(e){useFB=false;toast('Không kết nối được Firebase, chuyển sang localStorage','err');await load()}
- await seed();me=S.users.find(u=>u.id==localStorage.getItem('qz_me'))||null;render()})();
+ await seed();me=S.users.find(u=>u.id==localStorage.getItem('qz_me'))||null;if(me?.role=='banned')me=null;render()})();
 </script></body></html>
