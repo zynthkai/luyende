@@ -90,7 +90,6 @@ span.hl{border-radius:3px;color:#0f172a;padding:0 1px}span.hl[data-c=y]{backgrou
 .dark .src-pill.video{background:#0c4a6e;color:#7dd3fc}
 .dark .src-pill.playlist{background:#4c1d95;color:#d8b4fe}
 .dark .src-pill.mix{background:#7c2d12;color:#fdba74}
-/* ===== Volume Control ===== */
 .vol-ctrl{display:flex;align-items:center;gap:.5rem;background:var(--sf);border:1px solid var(--bd);border-radius:.9rem;padding:.35rem .7rem;min-width:180px;transition:border-color .15s}
 .vol-ctrl:hover{border-color:var(--ac2)}
 .vol-btn{width:1.8rem;height:1.8rem;border-radius:.5rem;display:flex;align-items:center;justify-content:center;color:var(--tx2);transition:background-color .15s,color .15s;flex-shrink:0}
@@ -289,14 +288,14 @@ document.addEventListener('selectionchange',()=>{clearTimeout(hlT);hlT=setTimeou
 let RM=null,rtab='chat',ytPr,rxIdx=0;
 const rl={},rkey=id=>'qz_room_'+id,isHost=()=>RM?.doc?.host==me.id;
 
-// --- Volume state (local only) ---
+// --- Volume state ---
 let myVol = (() => {
   const v = parseFloat(localStorage.getItem('qz_vol'));
   return isNaN(v) ? 100 : Math.max(0, Math.min(100, v));
 })();
 let isMuted = localStorage.getItem('qz_muted') === '1';
 
-// --- URL parser: video / playlist / Mix ---
+// --- URL parser ---
 const ytParse=u=>{
   u=String(u||'').trim();
   const pl=u.match(/[?&]list=([\w-]+)/);
@@ -426,7 +425,7 @@ function roomH(){
 function roomMount(){
   if(!RM)return;
   if(!RM.un){RM.un=rListen(RM.id,roomUpd);RM.iv=setInterval(roomTick,1000)}
-  RM.pl=null;RM.rdy=0;RM.mk=0;RM.sig='';RM.lastSync=Date.now();
+  RM.pl=null;RM.rdy=0;RM.mk=0;RM.sig='';RM.rev=RM.doc?.pb?.rev||0;
   RM.cvid=null;RM.csrcType=null;
   if(RM.doc&&$('#rvid')){RM.mk=1;ytMake()}
   roomPanel();
@@ -438,10 +437,14 @@ function roomUpd(d){
   if(d.ban?.[me.id]){RM.kicked=1;toast('Bạn đã bị cấm vào phòng này','err');return go('rooms')}
   const prev=RM.doc;RM.doc=d;
   if(!RM.mk&&$('#rvid')){RM.mk=1;ytMake()}
+  // Đổi nguồn video (cực kỳ quan trọng)
   const srcChanged = RM.rdy && (d.vid !== RM.cvid || d.srcType !== RM.csrcType);
   if(srcChanged) loadSource(d);
+  
   roomPanel();
-  if(prev?.pb?.rev!==d.pb?.rev)applyPb(d.pb);
+  // Đồng bộ thời gian
+  if(d.pb && (d.pb.rev||0) > (RM.rev||0)) applyPb(d.pb);
+  
   const lastRx=(d.rx||[]).length>0?(d.rx[d.rx.length-1]):null;
   if(lastRx&&(!RM.lastRxTs||lastRx.ts>RM.lastRxTs)){
     RM.lastRxTs=lastRx.ts;
@@ -495,14 +498,16 @@ function ytMake(){
           if(h){
             if(d.pb?.t>0)RM.pl.seekTo(d.pb.t,true);
             RM.pl.playVideo();
+            setTimeout(() => pub(true, RM.pl.getCurrentTime() || 0), 800);
           } else applyPb(d.pb,1);
           updateNowPlaying();
         },
         onStateChange:e=>{
           updateNowPlaying();
           if(!isHost()||!RM.rdy)return;
-          if(e.data===1)pub(true,RM.pl.getCurrentTime());
-          else if(e.data===2)pub(false,RM.pl.getCurrentTime());
+          const cur=RM.pl.getCurrentTime()||0;
+          if(e.data===1)pub(true,cur);
+          else if(e.data===2)pub(false,cur);
           else if(e.data===0){
             if(isMix||isPL)return;
             const q=RM.doc.queue||[];
@@ -574,19 +579,29 @@ function updateNowPlaying(){
   }catch(e){}
 }
 function pub(p,t){
-  RM.last={p,t,at:Date.now()};
-  rUpd(RM.id,{pb:{p,t,rev:(RM.doc?.pb?.rev||0)+1,ts:Date.now()}}).catch(()=>{});
+  if(!RM?.pl?.getCurrentTime)return;
+  const now=Date.now();
+  if(!p && RM._lastPausePub && now-RM._lastPausePub<500)return;
+  if(!p) RM._lastPausePub=now;
+  RM.last={p,t,at:now};
+  const curRev=(RM.doc?.pb?.rev||0)+1;
+  rUpd(RM.id,{pb:{p,t,rev:curRev,ts:now}}).catch(()=>{});
 }
 function applyPb(pb,force){
   if(!RM?.rdy||isHost()||!pb)return;
   const pl=RM.pl;
   if(!force&&RM.rev==pb.rev)return;
   RM.rev=pb.rev;
-  const live=pl.getVideoData?.().isLive;
-  const target=pb.t+(pb.p?0.5:0);
   const cur=pl.getCurrentTime?.()||0;
-  if(!live&&Math.abs(cur-target)>1.5)pl.seekTo(target,true);
-  pb.p?pl.playVideo():pl.pauseVideo();
+  const live=pl.getVideoData?.().isLive;
+  const since=pb.p?Math.min((Date.now()-(pb.ts||Date.now()))/1000,5):0;
+  const target=pb.t+since+(pb.p?0.3:0);
+  if(!live){
+    const diff=Math.abs(cur-target);
+    if(diff>2) pl.seekTo(target,true);
+  }
+  if(pb.p && pl.getPlayerState()!==1) pl.playVideo();
+  if(!pb.p && pl.getPlayerState()===1) pl.pauseVideo();
   applyVol();
   const sb=$('#syncbar');
   if(sb){sb.style.width='100%';setTimeout(()=>sb.style.width='0%',400)}
@@ -594,7 +609,12 @@ function applyPb(pb,force){
 function roomTick(){
   if(!RM)return;RM.c=(RM.c||0)+1;
   if(RM.c%20==1)rUpd(RM.id,{['m.'+me.id]:{n:me.name,ts:Date.now()}}).catch(()=>{});
-  if(RM.rdy&&isHost()&&RM.c%5==0)pub(RM.pl.getPlayerState()==1,RM.pl.getCurrentTime());
+  if(!RM.rdy||!isHost()||!RM.pl?.getCurrentTime)return;
+  const st=RM.pl.getPlayerState();
+  const cur=RM.pl.getCurrentTime();
+  if(st!==1 && st!==2) return;
+  if(typeof cur!=='number' || !isFinite(cur)) return;
+  if(RM.c%5==0) pub(st===1, cur);
 }
 
 // ===== Panel =====
@@ -773,7 +793,7 @@ function roomLeave(){
   RM=null;
 }
 
-// ===== Phần thi =====
+// ===== Phần thi (giữ nguyên) =====
 async function start(id,opt){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản đã bị khóa','err');return logout()}const q=S.quizzes.find(x=>x.id==id);if(!opt&&q.mode=='multi')return modeSel(id);const o=opt||{pm:0,sq:!!q.shuffle,so:!!q.shuffle};let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(o.so)qs.forEach(x=>x.ord=sh(x.ord));if(o.sq)qs=sh(qs);
  HL={};ex={q,qs,pm:!!o.pm,rv:{},cur:0,ans:{},flag:{},tabs:0,t0:Date.now(),last:0};view='exam';render();clearInterval(tm);tm=setInterval(tick,1000)}
