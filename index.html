@@ -64,13 +64,33 @@ span.hl{border-radius:3px;color:#0f172a;padding:0 1px}span.hl[data-c=y]{backgrou
 #rform{display:none}#rvid{width:100%;height:100%}
 .rmsg{max-width:85%;padding:.4rem .8rem;border-radius:1rem;font-size:.875rem;word-break:break-word}
 .rmem{display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--bd)}.rmem:last-child{border-bottom:0}
+/* ===== Room extras ===== */
+.room-wrap{position:relative}
+#reaction-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
+.rx{position:absolute;bottom:0;font-size:2rem;animation:flyup 3s ease-out forwards;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+@keyframes flyup{0%{bottom:0;opacity:1;transform:scale(.6) translateY(0)}20%{transform:scale(1.1)}100%{bottom:100%;opacity:0;transform:scale(.9) translateY(-40px)}}
+.rxtab{position:absolute;right:.75rem;bottom:.75rem;display:flex;gap:.35rem;background:rgba(0,0,0,.55);padding:.4rem .6rem;border-radius:999px;z-index:10;backdrop-filter:blur(8px)}
+.rxtab button{width:2rem;height:2rem;font-size:1.1rem;border-radius:999px;transition:transform .15s;cursor:pointer}
+.rxtab button:hover{transform:scale(1.25);background:rgba(255,255,255,.15)}
+.syncbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.1);z-index:8;overflow:hidden}
+.syncbar>i{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899);transition:width .3s}
+.qitem{display:flex;align-items:center;gap:.5rem;padding:.5rem;border-radius:.6rem;font-size:.8rem}
+.qitem.cur{background:var(--ac-s);font-weight:600}
+.qthumb{width:2.5rem;height:1.6rem;border-radius:.3rem;object-fit:cover;flex-shrink:0;background:var(--mu)}
+.pinned{background:linear-gradient(90deg,var(--wa-s),transparent);border-left:3px solid #f59e0b;padding:.5rem .75rem;border-radius:.5rem;margin-bottom:.6rem}
+.typing{font-size:.75rem;color:var(--tx2);height:1rem;font-style:italic}
+.host-pill{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#78350f;font-weight:700}
+.quality-menu{position:absolute;right:0;top:100%;background:var(--sf);border:1px solid var(--bd);border-radius:.75rem;padding:.4rem;box-shadow:0 10px 30px rgba(0,0,0,.2);z-index:15;min-width:120px}
+.quality-menu button{display:block;width:100%;text-align:left;padding:.35rem .6rem;border-radius:.4rem;font-size:.8rem}
+.quality-menu button:hover{background:var(--mu)}
+.quality-menu button.on{background:var(--ac-s);color:var(--ac-t);font-weight:600}
 </style><script>document.documentElement.classList.toggle('dark',(localStorage.getItem('qz_theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))=='dark')</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f66ff'/%3E%3Cpath fill='%23fff' d='M32 13 5 26l27 13 27-13z'/%3E%3Cpath fill='%23fff' fill-opacity='.85' d='M16 35v10c0 5 7 9 16 9s16-4 16-9V35L32 43z'/%3E%3Cpath stroke='%23fff' stroke-width='3' stroke-linecap='round' d='M56 27v14'/%3E%3C/svg%3E">
 </head>
 <body><div id="app"><div class="flex items-center justify-center min-h-screen text-slate-500"><i class="fa fa-circle-notch fa-spin mr-2"></i> Đang tải dữ liệu...</div></div><div id="modal"></div><div id="toast" class="fixed top-3 right-3 z-50 space-y-2"></div>
 <script>
-// ===== Cấu hình Firebase =====
+// ===== Firebase =====
 const firebaseConfig = {
   apiKey: "AIzaSyBlBHZziqx9hduJOeYB1BoZPOnHpHpBdNw",
   authDomain: "thewebsitefor12a1.firebaseapp.com",
@@ -80,7 +100,6 @@ const firebaseConfig = {
   appId: "1:1091189504830:web:46fa277a48482502cfca6f",
   measurementId: "G-C9V5F2DV14"
 };
-
 const ADMIN_EMAILS=["dominhkhaik9@gmail.com"];
 let useFB=!!firebaseConfig.apiKey&&typeof firebase!='undefined',fdb,fauth;
 if(useFB){try{firebase.initializeApp(firebaseConfig);fdb=firebase.firestore()}catch(e){useFB=false}}
@@ -110,7 +129,7 @@ function toast(m,t='ok'){const d=document.createElement('div');d.className='fade
 const modal=(h,k)=>{$('#modal').innerHTML=h?`<div class="fixed inset-0 bg-slate-900/40 z-40 overflow-auto p-3 flex items-start justify-center"><div class="card w-full max-w-2xl my-6 relative">${k?'':`<button class="absolute right-4 top-2 text-2xl" onclick="modal('')">×</button>`}${h}</div></div>`:'';math()};
 let me=null,view='dash',ex=null,tm,curR,newAv,authMode='login',lb={q:'all',c:''},editId=null;
 
-// ===== Parser =====
+// ===== Parser đề thi =====
 function parse(t,keepL){
   const qs=[];let cq=null,cg='',ig=false,md='text',m;
   t.replace(/\r/g,'').split('\n').forEach((ln,li)=>{
@@ -206,7 +225,6 @@ function render(){const app=$('#app'),y=window.scrollY;
 function navState(){const[n,t]=VT[view];document.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v==n));$('#pt').textContent=t;$('#shell').classList.remove('opn')}
 function sbToggle(){const e=$('#shell');if(matchMedia('(max-width:767px)').matches)e.classList.toggle('opn');else localStorage.setItem('qz_sb',e.classList.toggle('col')?'1':'0')}
 function theme(){const d=document.documentElement.classList.toggle('dark');localStorage.setItem('qz_theme',d?'dark':'light');render()}
-// ===== Dashboard =====
 const tIcon=()=>document.querySelectorAll('[data-ti]').forEach(e=>e.className='fa '+(document.documentElement.classList.contains('dark')?'fa-sun':'fa-moon'));
 const tbtn=c=>`<button class="tgl ${c||''}" onclick="theme()" title="Giao diện sáng / tối" aria-label="Đổi giao diện sáng / tối"><span><i class="fa fa-sun"></i></span><span><i class="fa fa-moon"></i></span></button>`;
 const emp=(i,t)=>`<div class="text-center py-10 text-slate-500"><div class="w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-2" style="background:var(--mu)"><i class="fa ${i}"></i></div>${t}</div>`;
@@ -243,66 +261,405 @@ function hlDo(c){const x=hlSel();if(!x)return;const{r,c:ct}=x,kx=n=>(n.nodeType=
  ct.normalize();HL[ct.dataset.hl]=ct.innerHTML;getSelection().removeAllRanges();$('#hlbar').style.display='none'}
 document.addEventListener('selectionchange',()=>{clearTimeout(hlT);hlT=setTimeout(hlBar,120)});
 
-// ===== Phòng xem YouTube chung =====
-let RM=null,rtab='chat',ytPr;
+// =========================================================================
+// ========================== PHÒNG XEM CHUNG ===============================
+// =========================================================================
+let RM=null,rtab='chat',ytPr,rxIdx=0;
 const rl={},rkey=id=>'qz_room_'+id,isHost=()=>RM?.doc?.host==me.id;
-const ytId=u=>{u=String(u||'').trim();const m=u.match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);return m?m[1]:/^[\w-]{11}$/.test(u)?u:''};
+
+// --- URL parser: video HOẶC playlist ---
+const ytParse=u=>{
+  u=String(u||'').trim();
+  const pl=u.match(/[?&]list=([\w-]+)/);
+  if(pl)return{type:'playlist',id:pl[1]};
+  const m=u.match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);
+  if(m)return{type:'video',id:m[1]};
+  if(/^[\w-]{11}$/.test(u))return{type:'video',id:u};
+  return null;
+};
 const ytLoad=()=>ytPr??=new Promise(r=>{if(window.YT?.Player)return r();window.onYouTubeIframeAPIReady=r;const e=document.createElement('script');e.src='https://www.youtube.com/iframe_api';document.head.append(e)});
+
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of t)h=(h*33^c.charCodeAt(0))>>>0;return'x'+h}}
 const sp=(o,k,v)=>{const a=k.split('.');let c=o;a.slice(0,-1).forEach(x=>c=c[x]??={});c[a.at(-1)]=v};
+
 const rGet=async id=>useFB?(await fdb.collection('rooms').doc(id).get()).data()||null:JSON.parse(localStorage.getItem(rkey(id))||'null');
-async function rUpd(id,patch,app){if(useFB){const d={...patch};for(const k in app||{})d[k]=firebase.firestore.FieldValue.arrayUnion(app[k]);return fdb.collection('rooms').doc(id).update(d)}
- const o=JSON.parse(localStorage.getItem(rkey(id))||'null');if(!o)return;for(const k in patch)sp(o,k,patch[k]);for(const k in app||{}){(o[k]??=[]).push(app[k]);if(o[k].length>200)o[k]=o[k].slice(-200)}localStorage.setItem(rkey(id),JSON.stringify(o));rl[id]?.(o)}
-function rListen(id,cb){if(useFB)return fdb.collection('rooms').doc(id).onSnapshot(x=>cb(x.exists?x.data():null),()=>cb(null));rl[id]=cb;const h=e=>{if(e.key==rkey(id))cb(e.newValue?JSON.parse(e.newValue):null)};addEventListener('storage',h);cb(JSON.parse(localStorage.getItem(rkey(id))||'null'));return()=>{delete rl[id];removeEventListener('storage',h)}}
+async function rUpd(id,patch,app){
+  if(useFB){const d={...patch};for(const k in app||{})d[k]=firebase.firestore.FieldValue.arrayUnion(app[k]);return fdb.collection('rooms').doc(id).update(d)}
+  const o=JSON.parse(localStorage.getItem(rkey(id))||'null');if(!o)return;
+  for(const k in patch)sp(o,k,patch[k]);
+  for(const k in app||{}){(o[k]??=[]).push(app[k]);if(o[k].length>300)o[k]=o[k].slice(-300)}
+  localStorage.setItem(rkey(id),JSON.stringify(o));rl[id]?.(o);
+}
+function rListen(id,cb){if(useFB)return fdb.collection('rooms').doc(id).onSnapshot(x=>cb(x.exists?x.data():null),()=>cb(null));
+  rl[id]=cb;const h=e=>{if(e.key==rkey(id))cb(e.newValue?JSON.parse(e.newValue):null)};
+  addEventListener('storage',h);cb(JSON.parse(localStorage.getItem(rkey(id))||'null'));
+  return()=>{delete rl[id];removeEventListener('storage',h)};}
 function saveMy(id,name,host){const k='qz_myrooms_'+me.id,a=JSON.parse(localStorage.getItem(k)||'[]').filter(r=>r.id!=id);a.unshift({id,name,host});localStorage.setItem(k,JSON.stringify(a.slice(0,8)))}
-async function rCreate(){const vid=ytId($('#ru').value);if(!vid)return toast('Link YouTube không hợp lệ','err');const pw=$('#rp').value,id=Math.random().toString(36).slice(2,8).toUpperCase(),name=$('#rn').value.trim()||('Phòng của '+me.name);
- const d={id,name,vid,host:me.id,hn:me.name,locked:false,pwh:pw?await sha(pw):'',pb:{p:false,t:0,rev:1,ts:Date.now()},m:{},k:{},chat:[],ts:Date.now()};
- useFB?await fdb.collection('rooms').doc(id).set(d):localStorage.setItem(rkey(id),JSON.stringify(d));saveMy(id,name,true);RM={id};view='room';render()}
-async function rJoin(id,pw){id=String(id||'').trim().toUpperCase();if(!id)return toast('Nhập mã phòng','err');const d=await rGet(id);if(!d)return toast('Không tìm thấy phòng','err');
- if(d.k?.[me.id])return toast('Bạn đã bị mời ra khỏi phòng này','err');
- if(d.host!=me.id){if(d.locked)return toast('Phòng đã khóa, không nhận thêm người','err');if(d.pwh&&await sha(pw||'')!=d.pwh)return toast('Sai mật khẩu phòng','err')}
- saveMy(id,d.name,d.host==me.id);RM={id};view='room';render()}
-function roomsH(){const my=JSON.parse(localStorage.getItem('qz_myrooms_'+me.id)||'[]');
- return `<p class="eyebrow mb-1">Xem chung</p><h1 class="hero mb-2">Xem YouTube cùng bạn bè</h1><p class="text-slate-500 mb-5 max-w-xl">Tạo phòng, chia sẻ mã và xem cùng một video đồng bộ. Trò chuyện bằng tin nhắn, không dùng mic.</p>
- <div class="grid md:grid-cols-2 gap-4"><div class="card space-y-3"><h3 class="font-semibold">Tạo phòng mới</h3><input id="rn" class="inp" placeholder="Tên phòng"><input id="ru" class="inp" placeholder="Dán link YouTube (video hoặc live)"><input id="rp" type="password" class="inp" placeholder="Mật khẩu phòng (không bắt buộc)"><button class="btn w-full" onclick="rCreate()"><i class="fa fa-plus mr-1.5"></i>Tạo phòng</button></div>
- <div class="card space-y-3"><h3 class="font-semibold">Vào phòng bằng mã</h3><input id="rc" class="inp uppercase" placeholder="Mã phòng (6 ký tự)" maxlength="6"><input id="rj" type="password" class="inp" placeholder="Mật khẩu (nếu có)"><button class="btn w-full" onclick="rJoin($('#rc').value,$('#rj').value)">Vào phòng</button></div></div>
- ${my.length?`<div class="card mt-4"><h3 class="font-semibold mb-2">Phòng gần đây</h3>${my.map(r=>`<div class="flex items-center gap-3 py-2.5 border-b border-[color:var(--bd)] last:border-0"><div class="flex-1 min-w-0"><div class="font-medium truncate">${esc(r.name)}</div><div class="text-xs text-slate-500">Mã ${esc(r.id)}${r.host?' · bạn là chủ phòng':''}</div></div><button class="btn b2" onclick="${r.host?`rJoin('${r.id}','')`:`$('#rc').value='${r.id}';$('#rj').focus()`}">Vào lại</button></div>`).join('')}</div>`:''}`}
-function roomH(){const d=RM?.doc;return `<div class="flex items-center gap-3 mb-3 flex-wrap"><button class="btn b2" onclick="go('rooms')"><i class="fa fa-arrow-left mr-1.5"></i>Rời phòng</button><div class="min-w-0"><div id="rnm" class="font-semibold truncate">${esc(d?.name||'Đang vào phòng...')}</div><div class="text-xs text-slate-500">Mã phòng <b class="num tracking-widest">${esc(RM?.id||'')}</b> <button class="text-[color:var(--ac-t)] ml-1" onclick="navigator.clipboard?.writeText('${RM?.id}');toast('Đã sao chép mã phòng')">Sao chép</button></div></div></div>
- <div class="grid lg:grid-cols-[1fr_340px] gap-4 items-start"><div><div id="rvwrap" class="relative aspect-video rounded-2xl overflow-hidden bg-black"><div id="rvid"></div><div id="rov" class="absolute inset-0"></div></div><div id="rctl" class="flex flex-wrap gap-2 mt-3"></div><p id="rnote" class="text-xs text-slate-500 mt-2"></p></div>
- <div class="card flex flex-col" style="padding:0"><div class="seg m-3 mb-0" id="rtabs"></div><div id="rbody" class="p-3 overflow-auto" style="height:min(55vh,22rem)"></div><form id="rform" onsubmit="return rSend(event)" class="p-3 border-t border-[color:var(--bd)] gap-2"><input id="rin" class="inp" maxlength="300" placeholder="Nhắn tin..." autocomplete="off"><button class="btn" aria-label="Gửi"><i class="fa fa-paper-plane"></i></button></form></div></div>`}
-function roomMount(){if(!RM)return;if(!RM.un){RM.un=rListen(RM.id,roomUpd);RM.iv=setInterval(roomTick,1000)}RM.pl=null;RM.rdy=0;RM.mk=0;RM.sig='';if(RM.doc&&$('#rvid')){RM.mk=1;ytMake()}roomPanel()}
-function roomUpd(d){if(!RM)return;if(!d){RM.dead=1;toast('Phòng không còn tồn tại','err');return go('rooms')}
- if(d.k?.[me.id]){RM.kicked=1;toast('Bạn đã bị mời ra khỏi phòng','err');return go('rooms')}
- RM.doc=d;if(!RM.mk&&$('#rvid')){RM.mk=1;ytMake()}
- if(RM.rdy&&d.vid!=RM.cvid){RM.cvid=d.vid;RM.pl.loadVideoById(d.vid)}
- roomPanel();applyPb(d.pb)}
-function ytMake(){const d=RM.doc,h=isHost();RM.cvid=d.vid;ytLoad().then(()=>{if(!RM||!$('#rvid'))return;RM.pl=new YT.Player('rvid',{videoId:d.vid,width:'100%',height:'100%',playerVars:{playsinline:1,rel:0,modestbranding:1,controls:h?1:0,disablekb:h?0:1},events:{onReady:()=>{RM.rdy=1;if(h){const t=RM.doc.pb?.t;if(t>0)RM.pl.seekTo(t,true)}else applyPb(RM.doc.pb,1)},onStateChange:e=>{if(!isHost()||!RM.rdy)return;if(e.data==1)pub(true,RM.pl.getCurrentTime());else if(e.data==2)pub(false,RM.pl.getCurrentTime())}}})})}
-function pub(p,t){RM.last={p,t,at:Date.now()};rUpd(RM.id,{pb:{p,t,rev:(RM.doc?.pb?.rev||0)+1,ts:Date.now()}}).catch(()=>{})}
-function applyPb(pb,force){if(!RM?.rdy||isHost()||!pb)return;const pl=RM.pl;if(!force&&RM.rev==pb.rev)return;RM.rev=pb.rev;const live=pl.getVideoData?.().isLive,t=pb.t+(pb.p?.5:0);
- if(!live&&Math.abs((pl.getCurrentTime?.()||0)-t)>1.5)pl.seekTo(t,true);pb.p?pl.playVideo():pl.pauseVideo()}
-function roomTick(){if(!RM)return;RM.c=(RM.c||0)+1;if(RM.c%20==1)rUpd(RM.id,{['m.'+me.id]:{n:me.name,ts:Date.now()}}).catch(()=>{});
- if(!RM.rdy||!isHost())return;const cur=RM.pl.getCurrentTime(),st=RM.pl.getPlayerState(),L=RM.last;
- if(L&&Math.abs(cur-(L.p?L.t+(Date.now()-L.at)/1000:L.t))>2.5)return pub(st==1,cur);if(RM.c%5==0)pub(st==1,cur)}
-function roomLeave(){if(!RM)return;clearInterval(RM.iv);RM.un?.();try{RM.pl?.destroy()}catch(e){}if(RM.doc&&!RM.dead&&!RM.kicked)rUpd(RM.id,{['m.'+me.id]:{n:me.name,ts:0}}).catch(()=>{});RM=null}
-function roomPanel(){const d=RM?.doc,b=$('#rbody');if(!d||!b)return;const h=isHost(),now=Date.now(),mem=Object.entries(d.m||{}).filter(([u,v])=>u==d.host||now-v.ts<50000).sort((x,y)=>(y[0]==d.host)-(x[0]==d.host));if(rtab=='set'&&!h)rtab='chat';
- $('#rnm').textContent=d.name;$('#rov').classList.toggle('hidden',h);$('#rform').style.display=rtab=='chat'?'flex':'none';
- $('#rtabs').innerHTML=[['chat','Trò chuyện',(d.chat||[]).length],['mem','Thành viên',mem.length],...(h?[['set','Cài đặt','']]:[])].map(([k,l,c])=>`<button class="${rtab==k?'on':''}" onclick="rtab='${k}';RM.sig='';roomPanel()">${l}${c!==''?` <span class="opacity-60">${c}</span>`:''}</button>`).join('');
- $('#rctl').innerHTML=`<button class="btn b2" onclick="rMute()"><i class="fa fa-volume-high mr-1.5"></i>Âm thanh</button><button class="btn b2" onclick="rFs()"><i class="fa fa-expand mr-1.5"></i>Toàn màn hình</button>${h?'':`<button class="btn b2" onclick="applyPb(RM.doc.pb,1)"><i class="fa fa-rotate mr-1.5"></i>Đồng bộ lại</button>`}${d.locked?'<span class="badge warn self-center"><i class="fa fa-lock mr-1"></i>Phòng đã khóa</span>':''}${d.pwh?'<span class="badge self-center"><i class="fa fa-key mr-1"></i>Có mật khẩu</span>':''}`;
- $('#rnote').textContent=h?'Bạn là chủ phòng: phát, dừng, tua video sẽ đồng bộ cho mọi người.':'Chủ phòng điều khiển video. Nếu bị lệch hoặc không tự chạy, bấm Đồng bộ lại.';
- const sig=rtab+(rtab=='chat'?(d.chat||[]).length:rtab=='mem'?mem.map(x=>x[0]).join():[d.locked,d.pwh,d.vid].join());if(sig==RM.sig)return;RM.sig=sig;
- if(rtab=='chat'){const near=b.scrollHeight-b.scrollTop-b.clientHeight<60;b.innerHTML=(d.chat||[]).slice(-100).map(m=>`<div class="mb-2.5 ${m.u==me.id?'text-right':''}"><div class="text-[11px] text-slate-500">${esc(m.n)}${m.u==d.host?' · chủ phòng':''}</div><div class="rmsg inline-block ${m.u==me.id?'ml-auto':''}" style="background:${m.u==me.id?'var(--ac-s)':'var(--mu)'}">${esc(m.t)}</div></div>`).join('')||'<p class="text-center text-sm text-slate-500 py-8">Chưa có tin nhắn. Hãy chào mọi người!</p>';if(near||!b.dataset.s){b.scrollTop=b.scrollHeight;b.dataset.s=1}}
- else if(rtab=='mem')b.innerHTML=`<p class="text-xs text-slate-500 mb-1">Đang tham gia (${mem.length})</p>`+mem.map(([u,v])=>`<div class="rmem"><img src="${ini(v.n)}" class="w-9 h-9 rounded-full"><div class="flex-1 min-w-0 font-medium truncate">${esc(v.n)}${u==me.id?' <span class="badge">Bạn</span>':''}${u==d.host?' <span class="badge">Chủ phòng</span>':''}</div>${h&&u!=me.id?`<button class="btn b2" onclick="rKick('${u}')">Mời ra</button>`:''}</div>`).join('');
- else b.innerHTML=`<div class="space-y-5"><div><div class="font-medium">Khóa phòng</div><p class="text-xs text-slate-500 mb-2">Phòng khóa không nhận thêm người mới. Người đang ở trong phòng vẫn xem bình thường.</p><button class="btn ${d.locked?'br':'b2'}" onclick="rLock()"><i class="fa fa-${d.locked?'lock':'lock-open'} mr-1.5"></i>${d.locked?'Đang khóa, bấm để mở':'Khóa phòng'}</button></div><div><div class="font-medium">Mật khẩu phòng</div><div class="flex gap-2 mt-1"><input id="rnp" type="password" class="inp" placeholder="${d.pwh?'Đổi mật khẩu mới':'Đặt mật khẩu'}"><button class="btn" onclick="rPw()">Lưu</button></div>${d.pwh?'<button class="text-sm mt-1 text-[color:var(--er-t)]" onclick="rPw(1)">Gỡ mật khẩu</button>':''}</div><div><div class="font-medium">Đổi video</div><div class="flex gap-2 mt-1"><input id="rnu" class="inp" placeholder="Link YouTube mới"><button class="btn" onclick="rVid()">Đổi</button></div></div><button class="btn br w-full" onclick="rClose()">Đóng phòng</button></div>`}
-function rSend(e){e.preventDefault();const i=$('#rin'),t=i.value.trim().slice(0,300);if(!t||!RM||Date.now()-(RM.ls||0)<700)return false;RM.ls=Date.now();i.value='';rUpd(RM.id,{},{chat:{u:me.id,n:me.name,t,ts:Date.now()}}).catch(()=>toast('Không gửi được tin nhắn','err'));return false}
+
+// ===== CRUD phòng =====
+async function rCreate(){
+  const src=ytParse($('#ru').value);if(!src)return toast('Link YouTube không hợp lệ','err');
+  const pw=$('#rp').value,id=Math.random().toString(36).slice(2,8).toUpperCase();
+  const name=$('#rn').value.trim()||('Phòng của '+me.name);
+  const d={id,name,vid:src.id,srcType:src.type,host:me.id,hn:me.name,locked:false,pwh:pw?await sha(pw):'',
+    pb:{p:false,t:0,rev:1,ts:Date.now(),title:'',dur:0},
+    m:{},k:{},ban:{},chat:[],rx:[],queue:[],ts:Date.now(),pin:null};
+  useFB?await fdb.collection('rooms').doc(id).set(d):localStorage.setItem(rkey(id),JSON.stringify(d));
+  saveMy(id,name,true);RM={id};view='room';render();
+}
+async function rJoin(id,pw){
+  id=String(id||'').trim().toUpperCase();if(!id)return toast('Nhập mã phòng','err');
+  const d=await rGet(id);if(!d)return toast('Không tìm thấy phòng','err');
+  if(d.ban?.[me.id])return toast('Bạn đã bị cấm vào phòng này','err');
+  if(d.k?.[me.id])return toast('Bạn đã bị mời ra khỏi phòng','err');
+  if(d.host!=me.id){
+    if(d.locked)return toast('Phòng đã khóa','err');
+    if(d.pwh&&await sha(pw||'')!=d.pwh)return toast('Sai mật khẩu phòng','err');
+  }
+  saveMy(id,d.name,d.host==me.id);RM={id};view='room';render();
+}
+function roomsH(){
+  const my=JSON.parse(localStorage.getItem('qz_myrooms_'+me.id)||'[]');
+  return `<p class="eyebrow mb-1">Xem chung</p><h1 class="hero mb-2">Xem YouTube cùng bạn bè</h1>
+  <p class="text-slate-500 mb-5 max-w-xl">Tạo phòng, chia sẻ mã và xem cùng một video đồng bộ. Trò chuyện bằng tin nhắn, không dùng mic.</p>
+  <div class="grid md:grid-cols-2 gap-4">
+   <div class="card space-y-3"><h3 class="font-semibold">Tạo phòng mới</h3>
+    <input id="rn" class="inp" placeholder="Tên phòng">
+    <input id="ru" class="inp" placeholder="Link YouTube (video, live hoặc playlist)">
+    <input id="rp" type="password" class="inp" placeholder="Mật khẩu phòng (không bắt buộc)">
+    <button class="btn w-full" onclick="rCreate()"><i class="fa fa-plus mr-1.5"></i>Tạo phòng</button>
+    <p class="text-xs text-slate-500"><i class="fa fa-circle-info"></i> Dán link dạng <code>watch?v=ID</code>, <code>youtu.be/ID</code> hoặc <code>playlist?list=ID</code></p>
+   </div>
+   <div class="card space-y-3"><h3 class="font-semibold">Vào phòng bằng mã</h3>
+    <input id="rc" class="inp uppercase" placeholder="Mã phòng (6 ký tự)" maxlength="6">
+    <input id="rj" type="password" class="inp" placeholder="Mật khẩu (nếu có)">
+    <button class="btn w-full" onclick="rJoin($('#rc').value,$('#rj').value)">Vào phòng</button>
+   </div>
+  </div>
+  ${my.length?`<div class="card mt-4"><h3 class="font-semibold mb-2">Phòng gần đây</h3>${my.map(r=>`<div class="flex items-center gap-3 py-2.5 border-b border-[color:var(--bd)] last:border-0"><div class="flex-1 min-w-0"><div class="font-medium truncate">${esc(r.name)}</div><div class="text-xs text-slate-500">Mã ${esc(r.id)}${r.host?' · bạn là chủ phòng':''}</div></div><button class="btn b2" onclick="${r.host?`rJoin('${r.id}','')`:`$('#rc').value='${r.id}';$('#rj').focus()`}">Vào lại</button></div>`).join('')}</div>`:''}`;
+}
+
+// ===== UI phòng =====
+function roomH(){
+  const d=RM?.doc;
+  return `<div class="flex items-center gap-3 mb-3 flex-wrap">
+   <button class="btn b2" onclick="go('rooms')"><i class="fa fa-arrow-left mr-1.5"></i>Rời</button>
+   <div class="min-w-0 flex-1">
+    <div id="rnm" class="font-semibold truncate">${esc(d?.name||'Đang vào...')}</div>
+    <div class="text-xs text-slate-500">Mã <b class="tracking-widest">${esc(RM?.id||'')}</b>
+     <button class="text-[color:var(--ac-t)] ml-1" onclick="navigator.clipboard?.writeText('${RM?.id}');toast('Đã sao chép')">Copy</button>
+     <span id="rstat" class="ml-2"></span>
+    </div>
+   </div>
+  </div>
+  <div class="grid lg:grid-cols-[1fr_360px] gap-4 items-start">
+   <div>
+    <div id="rvwrap" class="room-wrap relative aspect-video rounded-2xl overflow-hidden bg-black">
+     <div id="rvid"></div>
+     <div id="rov" class="absolute inset-0"></div>
+     <div id="reaction-layer"></div>
+     <div class="rxtab">
+      ${['❤️','😂','😮','👍','🔥'].map(e=>`<button onclick="rReact('${e}')">${e}</button>`).join('')}
+     </div>
+     <div class="syncbar"><i id="syncbar" style="width:0%"></i></div>
+    </div>
+    <div id="rctl" class="flex flex-wrap gap-2 mt-3"></div>
+    <p id="rnote" class="text-xs text-slate-500 mt-2"></p>
+   </div>
+   <div class="card flex flex-col" style="padding:0">
+    <div class="seg m-3 mb-0" id="rtabs"></div>
+    <div id="rbody" class="p-3 overflow-auto" style="height:min(60vh,26rem)"></div>
+    <div class="px-3"><div id="rtyping" class="typing"></div></div>
+    <form id="rform" onsubmit="return rSend(event)" class="p-3 border-t border-[color:var(--bd)] flex gap-2">
+     <input id="rin" class="inp" maxlength="300" placeholder="Nhắn tin..." autocomplete="off" oninput="rTyping()">
+     <button class="btn" aria-label="Gửi"><i class="fa fa-paper-plane"></i></button>
+    </form>
+   </div>
+  </div>`;
+}
+function roomMount(){
+  if(!RM)return;
+  if(!RM.un){RM.un=rListen(RM.id,roomUpd);RM.iv=setInterval(roomTick,1000)}
+  RM.pl=null;RM.rdy=0;RM.mk=0;RM.sig='';RM.lastSync=Date.now();
+  if(RM.doc&&$('#rvid')){RM.mk=1;ytMake()}
+  roomPanel();
+}
+function roomUpd(d){
+  if(!RM)return;
+  if(!d){RM.dead=1;toast('Phòng không còn tồn tại','err');return go('rooms')}
+  if(d.k?.[me.id]){RM.kicked=1;toast('Bạn đã bị mời ra khỏi phòng','err');return go('rooms')}
+  if(d.ban?.[me.id]){RM.kicked=1;toast('Bạn đã bị cấm vào phòng này','err');return go('rooms')}
+  const prev=RM.doc;RM.doc=d;
+  if(!RM.mk&&$('#rvid')){RM.mk=1;ytMake()}
+  if(RM.rdy&&d.vid!=RM.cvid)loadSource(d);
+  roomPanel();
+  if(prev?.pb?.rev!==d.pb?.rev)applyPb(d.pb);
+  // reaction mới
+  const lastRx=(d.rx||[]).length>0?(d.rx[d.rx.length-1]):null;
+  if(lastRx&&(!RM.lastRxTs||lastRx.ts>RM.lastRxTs)){
+    RM.lastRxTs=lastRx.ts;
+    if(lastRx.uid!==me.id)spawnRx(lastRx.e);
+  }
+}
+function loadSource(d){
+  RM.cvid=d.vid;
+  if(d.srcType==='playlist')RM.pl.loadPlaylist({list:d.vid,listType:'playlist'});
+  else RM.pl.loadVideoById(d.vid);
+}
+
+// ===== Player =====
+function ytMake(){
+  const d=RM.doc,h=isHost();RM.cvid=d.vid;
+  ytLoad().then(()=>{
+    if(!RM||!$('#rvid'))return;
+    const isPL=d.srcType==='playlist';
+    RM.pl=new YT.Player('rvid',{
+      height:'100%',width:'100%',host:'https://www.youtube.com',
+      playerVars:{
+        playsinline:1,rel:0,modestbranding:1,
+        controls:h?1:0,disablekb:h?0:1,
+        enablejsapi:1,origin:location.origin,
+        ...(isPL?{listType:'playlist',list:d.vid}:{videoId:d.vid})
+      },
+      events:{
+        onReady:()=>{
+          RM.rdy=1;
+          if(h){if(d.pb?.t>0)RM.pl.seekTo(d.pb.t,true);RM.pl.playVideo()}
+          else applyPb(d.pb,1);
+          updateNowPlaying();
+        },
+        onStateChange:e=>{
+          updateNowPlaying();
+          if(!isHost()||!RM.rdy)return;
+          if(e.data===1)pub(true,RM.pl.getCurrentTime());
+          else if(e.data===2)pub(false,RM.pl.getCurrentTime());
+          else if(e.data===0){ // ended -> next in queue (nếu có)
+            const q=RM.doc.queue||[];
+            if(q.length){
+              const next=q[0],rest=q.slice(1);
+              rUpd(RM.id,{vid:next,srcType:'video',queue:rest,pb:{p:false,t:0,rev:(RM.doc.pb?.rev||0)+1,ts:Date.now()}});
+            }
+          }
+        }
+      }
+    });
+  });
+}
+function updateNowPlaying(){
+  if(!RM?.pl?.getVideoData)return;
+  try{
+    const vd=RM.pl.getVideoData();
+    if(vd&&vd.title){
+      const st=$('#rstat');
+      if(st)st.innerHTML=`<i class="fa fa-music mr-1"></i>${esc(vd.title.slice(0,60))}${vd.title.length>60?'…':''}`;
+    }
+  }catch(e){}
+}
+function pub(p,t){
+  RM.last={p,t,at:Date.now()};
+  rUpd(RM.id,{pb:{p,t,rev:(RM.doc?.pb?.rev||0)+1,ts:Date.now()}}).catch(()=>{});
+}
+function applyPb(pb,force){
+  if(!RM?.rdy||isHost()||!pb)return;
+  const pl=RM.pl;
+  if(!force&&RM.rev==pb.rev)return;
+  RM.rev=pb.rev;
+  const live=pl.getVideoData?.().isLive;
+  const target=pb.t+(pb.p?0.5:0);
+  const cur=pl.getCurrentTime?.()||0;
+  if(!live&&Math.abs(cur-target)>1.5)pl.seekTo(target,true);
+  pb.p?pl.playVideo():pl.pauseVideo();
+  // syncbar
+  const sb=$('#syncbar');
+  if(sb){sb.style.width='100%';setTimeout(()=>sb.style.width='0%',400)}
+}
+function roomTick(){
+  if(!RM)return;RM.c=(RM.c||0)+1;
+  if(RM.c%20==1)rUpd(RM.id,{['m.'+me.id]:{n:me.name,ts:Date.now()}}).catch(()=>{});
+  // host báo lên server mỗi 5s
+  if(RM.rdy&&isHost()&&RM.c%5==0)pub(RM.pl.getPlayerState()==1,RM.pl.getCurrentTime());
+}
+
+// ===== Panel =====
+function roomPanel(){
+  const d=RM?.doc,b=$('#rbody');if(!d||!b)return;
+  const h=isHost(),now=Date.now();
+  const mem=Object.entries(d.m||{})
+    .filter(([u,v])=>u==d.host||now-v.ts<50000)
+    .sort((x,y)=>(y[0]==d.host)-(x[0]==d.host));
+  if(rtab=='set'&&!h)rtab='chat';
+  $('#rnm').textContent=d.name;
+  $('#rov').classList.toggle('hidden',h);
+  $('#rform').style.display=rtab=='chat'?'flex':'none';
+  $('#rtabs').innerHTML=[['chat','💬 Chat',(d.chat||[]).length],['mem','👥 Thành viên',mem.length],...(h?[['queue','📋 Hàng đợi',(d.queue||[]).length],['set','⚙️ Cài đặt','']]:[])]
+    .map(([k,l,c])=>`<button class="${rtab==k?'on':''}" onclick="rtab='${k}';RM.sig='';roomPanel()">${l}${c!==''?` <span class="opacity-60">${c}</span>`:''}</button>`).join('');
+  $('#rctl').innerHTML=`
+   <button class="btn b2" onclick="rMute()"><i class="fa fa-volume-high mr-1.5"></i>Âm thanh</button>
+   <button class="btn b2" onclick="rFs()"><i class="fa fa-expand mr-1.5"></i>Toàn màn hình</button>
+   <div class="relative inline-block">
+    <button class="btn b2" onclick="rQualityMenu(event)"><i class="fa fa-cog mr-1.5"></i>Chất lượng</button>
+   </div>
+   <select class="inp" style="width:auto;padding:.5rem .7rem" onchange="RM.pl?.setPlaybackRate(+this.value)">
+    ${[0.5,0.75,1,1.25,1.5,1.75,2].map(s=>`<option value="${s}" ${s==1?'selected':''}>${s}x</option>`).join('')}
+   </select>
+   ${h?'':`<button class="btn b2" onclick="applyPb(RM.doc.pb,1)"><i class="fa fa-rotate mr-1.5"></i>Đồng bộ</button>`}
+   ${d.locked?'<span class="badge warn self-center"><i class="fa fa-lock mr-1"></i>Đã khóa</span>':''}
+   ${d.pwh?'<span class="badge self-center"><i class="fa fa-key mr-1"></i>Có mật khẩu</span>':''}
+  `;
+  $('#rnote').textContent=h
+    ?'Bạn là chủ phòng: phát, dừng, tua, đổi video đều đồng bộ. Có thể chuyển quyền chủ phòng.'
+    :'Chủ phòng điều khiển video. Nếu bị lệch, bấm Đồng bộ. Bạn có thể chat, thả cảm xúc, xem thành viên.';
+  // Ký hiệu để tránh render lặp
+  const sig=rtab+(rtab=='chat'?(d.chat||[]).length+'_'+d.pin:rtab=='mem'?mem.map(x=>x[0]).join():rtab=='queue'?(d.queue||[]).join():[d.locked,d.pwh,d.vid,d.srcType].join());
+  if(sig==RM.sig)return;RM.sig=sig;
+
+  if(rtab=='chat'){
+    const near=b.scrollHeight-b.scrollTop-b.clientHeight<60;
+    let pinHtml='';
+    if(d.pin){const m=d.pin;pinHtml=`<div class="pinned"><div class="text-xs text-amber-700 font-semibold mb-1"><i class="fa fa-thumbtack mr-1"></i>Tin ghim</div><div class="text-sm">${esc(m.t)}</div><div class="text-xs text-slate-500 mt-1">— ${esc(m.n)}</div></div>`}
+    b.innerHTML=pinHtml+(d.chat||[]).slice(-150).map(m=>`
+      <div class="mb-2.5 ${m.u==me.id?'text-right':''} group">
+        <div class="text-[11px] text-slate-500 flex items-center gap-1 ${m.u==me.id?'justify-end':''}">
+          ${m.u==d.host?'<span class="badge host-pill">HOST</span>':''}
+          ${esc(m.n)}
+          ${h||m.u==me.id?`<button class="opacity-0 group-hover:opacity-100 transition ml-1 text-amber-600" onclick="rPin(${JSON.stringify(m).replace(/"/g,'&quot;')})" title="Ghim"><i class="fa fa-thumbtack"></i></button>`:''}
+        </div>
+        <div class="rmsg inline-block ${m.u==me.id?'ml-auto':''}" style="background:${m.u==me.id?'var(--ac-s)':'var(--mu)'}">${esc(m.t)}</div>
+      </div>`).join('')||'<p class="text-center text-sm text-slate-500 py-8">Chưa có tin nhắn. Hãy chào mọi người!</p>';
+    if(near||!b.dataset.s){b.scrollTop=b.scrollHeight;b.dataset.s=1}
+  }else if(rtab=='mem'){
+    b.innerHTML=`<p class="text-xs text-slate-500 mb-1">Đang tham gia (${mem.length})</p>`+
+      mem.map(([u,v])=>`
+       <div class="rmem">
+        <img src="${ini(v.n)}" class="w-9 h-9 rounded-full">
+        <div class="flex-1 min-w-0">
+         <div class="font-medium truncate">${esc(v.n)}${u==me.id?' <span class="badge">Bạn</span>':''}${u==d.host?' <span class="badge host-pill">HOST</span>':''}</div>
+         <div class="text-xs text-slate-500">${u==d.host?'Đang điều khiển':'Đang xem'}</div>
+        </div>
+        ${h&&u!=me.id?`
+         <div class="flex gap-1">
+          <button class="btn b2" title="Chuyển host" onclick="rTransfer('${u}')"><i class="fa fa-crown"></i></button>
+          <button class="btn b2" title="Mời ra" onclick="rKick('${u}')"><i class="fa fa-right-from-bracket"></i></button>
+          <button class="btn br" title="Cấm" onclick="rBan('${u}')"><i class="fa fa-ban"></i></button>
+         </div>`:''}
+       </div>`).join('');
+  }else if(rtab=='queue'){
+    const q=d.queue||[];
+    b.innerHTML=`<div class="mb-3 flex gap-2"><input id="qin" class="inp" placeholder="Link YouTube..."><button class="btn" onclick="rQAdd()">Thêm</button></div>
+     ${q.length?q.map((v,i)=>`<div class="qitem ${i==0?'cur':''}">
+       <img src="https://i.ytimg.com/vi/${v}/default.jpg" class="qthumb" onerror="this.style.display='none'">
+       <div class="flex-1 min-w-0"><div class="truncate font-medium">${i==0?'▶ Đang phát: ':''}${v}</div><div class="text-xs text-slate-500">${i==0?'Bài hiện tại':'Hàng đợi #'+(i+1)}</div></div>
+       <button class="btn b2" onclick="rQDel(${i})"><i class="fa fa-xmark"></i></button>
+      </div>`).join(''):'<p class="text-center text-sm text-slate-500 py-6">Hàng đợi trống. Thêm link để phát tiếp khi video kết thúc.</p>'}
+     <p class="text-xs text-slate-500 mt-3"><i class="fa fa-circle-info"></i> Chỉ chủ phòng thêm/xóa. Khi video hiện tại kết thúc, bài đầu hàng đợi sẽ tự phát.</p>`;
+  }else{
+    b.innerHTML=`<div class="space-y-5">
+     <div><div class="font-medium">Khóa phòng</div>
+      <p class="text-xs text-slate-500 mb-2">Không nhận người mới.</p>
+      <button class="btn ${d.locked?'br':'b2'}" onclick="rLock()"><i class="fa fa-${d.locked?'lock':'lock-open'} mr-1.5"></i>${d.locked?'Đang khóa':'Khóa phòng'}</button></div>
+     <div><div class="font-medium">Mật khẩu</div>
+      <div class="flex gap-2 mt-1"><input id="rnp" type="password" class="inp" placeholder="${d.pwh?'Đổi mật khẩu':'Đặt mật khẩu'}"><button class="btn" onclick="rPw()">Lưu</button></div>
+      ${d.pwh?`<button class="text-sm mt-1 text-[color:var(--er-t)]" onclick="rPw(1)">Gỡ mật khẩu</button>`:''}</div>
+     <div><div class="font-medium">Đổi nguồn video</div>
+      <div class="flex gap-2 mt-1"><input id="rnu" class="inp" placeholder="Link video/playlist mới"><button class="btn" onclick="rVid()">Đổi</button></div></div>
+     <div><div class="font-medium">Chuyển quyền chủ phòng</div>
+      <p class="text-xs text-slate-500 mb-2">Chọn thành viên để trao quyền điều khiển.</p>
+      <select id="rnewhost" class="inp">${mem.filter(([u])=>u!=me.id).map(([u,v])=>`<option value="${u}">${esc(v.n)}</option>`).join('')||'<option disabled>Không có ai</option>'}</select>
+      <button class="btn b2 mt-2 w-full" onclick="rTransfer($('#rnewhost').value)">Trao quyền</button></div>
+     <div class="pt-2 border-t border-[color:var(--bd)]"><button class="btn br w-full" onclick="rClose()"><i class="fa fa-trash mr-1.5"></i>Đóng phòng</button></div>
+    </div>`;
+  }
+}
+
+// ===== Chat =====
+function rSend(e){
+  e.preventDefault();const i=$('#rin'),t=i.value.trim().slice(0,300);
+  if(!t||!RM||Date.now()-(RM.ls||0)<700)return false;
+  RM.ls=Date.now();i.value='';
+  rUpd(RM.id,{['t.'+me.id]:0},{chat:{u:me.id,n:me.name,t,ts:Date.now()}})
+    .catch(()=>toast('Không gửi được','err'));
+  return false;
+}
+function rTyping(){
+  if(!RM||Date.now()-(RM.lt||0)<1000)return;RM.lt=Date.now();
+  rUpd(RM.id,{['t.'+me.id]:Date.now()}).catch(()=>{});
+}
+setInterval(()=>{
+  if(!RM?.doc)return;
+  const t=RM.doc.t||{},now=Date.now(),arr=[];
+  for(const[k,v]of Object.entries(t)){if(k!=me.id&&v&&now-v<4000){const m=RM.doc.m?.[k];if(m)arr.push(m.n.split(' ')[0])}}
+  const el=$('#rtyping');if(el)el.textContent=arr.length?arr.slice(0,3).join(', ')+(arr.length>3?` +${arr.length-3}`:'')+' đang nhập...':'';
+},1500);
+
+// ===== Reactions =====
+function rReact(e){
+  if(!RM)return;rxIdx++;
+  rUpd(RM.id,{},{rx:{uid:me.id,e,ts:Date.now()+rxIdx}}).catch(()=>{});
+  spawnRx(e);
+}
+function spawnRx(e){
+  const l=$('#reaction-layer');if(!l)return;
+  const el=document.createElement('div');el.className='rx';el.textContent=e;
+  el.style.left=(15+Math.random()*70)+'%';
+  l.append(el);setTimeout(()=>el.remove(),3000);
+}
+
+// ===== Queue =====
+function rQAdd(){
+  const src=ytParse($('#qin').value);if(!src)return toast('Link không hợp lệ','err');
+  if(src.type==='playlist')return toast('Chỉ thêm video vào hàng đợi (playlist thì dùng nguồn chính)','err');
+  rUpd(RM.id,{queue:[...(RM.doc.queue||[]),src.id]});
+  $('#qin').value='';
+}
+function rQDel(i){const q=[...(RM.doc.queue||[])];q.splice(i,1);rUpd(RM.id,{queue:q})}
+
+// ===== Cài đặt =====
 const rLock=()=>rUpd(RM.id,{locked:!RM.doc.locked});
 async function rPw(clear){const v=clear?'':$('#rnp').value;await rUpd(RM.id,{pwh:v?await sha(v):''});toast(v?'Đã đặt mật khẩu':'Đã gỡ mật khẩu')}
-function rVid(){const v=ytId($('#rnu').value);if(!v)return toast('Link YouTube không hợp lệ','err');rUpd(RM.id,{vid:v,pb:{p:false,t:0,rev:(RM.doc.pb?.rev||0)+1,ts:Date.now()}});$('#rnu').value=''}
-async function rClose(){if(!confirm('Đóng phòng? Mọi người sẽ bị đưa ra khỏi phòng.'))return;const id=RM.id;if(useFB)await fdb.collection('rooms').doc(id).delete();else{localStorage.removeItem(rkey(id));rl[id]?.(null)}}
+function rVid(){
+  const src=ytParse($('#rnu').value);if(!src)return toast('Link không hợp lệ','err');
+  rUpd(RM.id,{vid:src.id,srcType:src.type,pb:{p:false,t:0,rev:(RM.doc.pb?.rev||0)+1,ts:Date.now()}});
+  $('#rnu').value='';
+}
+async function rClose(){
+  if(!confirm('Đóng phòng? Mọi người sẽ bị đưa ra.'))return;
+  const id=RM.id;
+  if(useFB)await fdb.collection('rooms').doc(id).delete();
+  else{localStorage.removeItem(rkey(id));rl[id]?.(null)}
+}
 const rKick=u=>{const n=RM.doc.m?.[u]?.n||'';if(confirm(`Mời ${n} ra khỏi phòng?`))rUpd(RM.id,{['k.'+u]:true,['m.'+u]:{n,ts:0}})};
-const rMute=()=>{const p=RM?.pl;if(p)p.isMuted()?p.unMute():p.mute()},rFs=()=>$('#rvwrap')?.requestFullscreen?.();
+const rBan=u=>{const n=RM.doc.m?.[u]?.n||'';if(confirm(`Cấm ${n} vĩnh viễn?`))rUpd(RM.id,{['ban.'+u]:true,['m.'+u]:{n,ts:0}})};
+function rTransfer(u){
+  if(!u||!RM.doc.m?.[u])return;
+  rUpd(RM.id,{host:u,hn:RM.doc.m[u].n});
+  toast('Đã chuyển quyền chủ phòng');
+}
+function rPin(m){rUpd(RM.id,{pin:m});}
+function rMute(){const p=RM?.pl;if(p)p.isMuted()?p.unMute():p.mute()}
+function rFs(){const w=$('#rvwrap');if(w?.requestFullscreen)w.requestFullscreen()}
+function rQualityMenu(ev){
+  ev.stopPropagation();
+  document.querySelectorAll('.quality-menu').forEach(e=>e.remove());
+  const m=document.createElement('div');m.className='quality-menu';
+  const levels=RM.pl?.getAvailableQualityLevels?.()||[];
+  m.innerHTML=(levels.length?levels:['default','hd1080','hd720','large','medium','small']).map(q=>
+    `<button onclick="RM.pl.setPlaybackQuality('${q}');this.parentElement.remove()">${q}</button>`
+  ).join('');
+  const wrap=ev.currentTarget.parentElement;
+  wrap.append(m);
+  setTimeout(()=>document.addEventListener('click',()=>m.remove(),{once:true}),0);
+}
+// Host heartbeat + auto cleanup
+function roomLeave(){
+  if(!RM)return;
+  clearInterval(RM.iv);RM.un?.();try{RM.pl?.destroy()}catch(e){}
+  if(RM.doc&&!RM.dead&&!RM.kicked)
+    rUpd(RM.id,{['m.'+me.id]:{n:me.name,ts:0},['t.'+me.id]:0}).catch(()=>{});
+  RM=null;
+}
 
-// ===== Làm bài =====
-async function start(id,opt){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản của bạn đã bị khóa, không thể làm bài.','err');return logout()}const q=S.quizzes.find(x=>x.id==id);if(!opt&&q.mode=='multi')return modeSel(id);const o=opt||{pm:0,sq:!!q.shuffle,so:!!q.shuffle};let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
+// ===== Giữ nguyên phần thi =====
+async function start(id,opt){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản đã bị khóa','err');return logout()}const q=S.quizzes.find(x=>x.id==id);if(!opt&&q.mode=='multi')return modeSel(id);const o=opt||{pm:0,sq:!!q.shuffle,so:!!q.shuffle};let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(o.so)qs.forEach(x=>x.ord=sh(x.ord));if(o.sq)qs=sh(qs);
  HL={};ex={q,qs,pm:!!o.pm,rv:{},cur:0,ans:{},flag:{},tabs:0,t0:Date.now(),last:0};view='exam';render();clearInterval(tm);tm=setInterval(tick,1000)}
 let sm={pm:0,sh:0};
@@ -311,7 +668,7 @@ function modeSel(id,u){const q=S.quizzes.find(x=>x.id==id);if(u)Object.assign(sm
  modal(`<h3 class="text-xl font-semibold mb-1">${esc(q.title)}</h3><p class="text-sm text-slate-500 mb-3">${q.qs.length} câu · ${q.dur} phút</p>${card(0,'fa-stopwatch','Thi thử','Làm như thi thật: có tính giờ, nộp bài mới xem đáp án và được tính vào bảng xếp hạng.')}${card(1,'fa-lightbulb','Luyện tập','Bấm vào câu nào hiện đáp án và lời giải của câu đó. Không tính giờ, không tính xếp hạng.')}<p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mt-4 mb-2">Đảo thứ tự</p><div class="seg" style="flex-wrap:wrap">${['Không đảo','Đảo câu hỏi','Đảo đáp án','Đảo cả hai'].map((l,i)=>`<button class="${sm.sh==i?'on':''}" onclick="modeSel('${id}',{sh:${i}})">${l}</button>`).join('')}</div><button class="btn w-full mt-5" onclick="modal('');start('${id}',{pm:sm.pm,sq:sm.sh==1||sm.sh==3,so:sm.sh==2||sm.sh==3})">Bắt đầu làm bài</button>`)}
 const el=()=>Math.floor((Date.now()-ex.t0)/1000);
 const left=()=>Math.max(0,ex.q.dur*60-Math.floor((Date.now()-ex.t0)/1000));
-function tick(){if(!ex)return;if(!ex.pm&&!left()){toast('Hết giờ, hệ thống tự nộp bài','err');return submit()}const e=$('#tm');if(e)e.textContent=fmt(ex.pm?el():left())}
+function tick(){if(!ex)return;if(!ex.pm&&!left()){toast('Hết giờ, tự nộp bài','err');return submit()}const e=$('#tm');if(e)e.textContent=fmt(ex.pm?el():left())}
 const palH=()=>ex.qs.map((x,k)=>{const a=ex.ans[x.i],d=Array.isArray(a)?a.some(v=>v!=null):(a!==undefined&&a!=='');return `<button onclick="ex.cur=${k};render()" class="shrink-0 min-w-[2.7rem] md:min-w-0 py-2 rounded-lg border text-sm ${k==ex.cur?'border-[color:var(--ac)] ring-2 ring-[color:var(--ac)]':'border-slate-300'} ${ex.flag[x.i]?'bg-amber-500 text-[color:var(--tx)]':d?'bg-[color:var(--ok-s)] border-[color:var(--ok-b)] text-[color:var(--ok-t)]':''}">${k+1}</button>`}).join('');
 function examH(){const{q,qs,cur}=ex,x=qs[cur],a=ex.ans[x.i],n=qs.filter(y=>{const v=ex.ans[y.i];return Array.isArray(v)?v.some(z=>z!=null):(v!==undefined&&v!=='')}).length;
  const qTxt=x.text||`Chọn phương án đúng nhất để điền vào chỗ trống (${x.num}) trong đoạn văn:`;
@@ -320,9 +677,8 @@ function examH(){const{q,qs,cur}=ex,x=qs[cur],a=ex.ans[x.i],n=qs.filter(y=>{cons
  else if(x.type=='tf')body=`<div class="mt-3 rounded-xl border border-[color:var(--bd)] overflow-hidden"><div class="hidden sm:grid grid-cols-[1fr_auto] gap-4 px-4 py-2 bg-[color:var(--mu)] border-b border-[color:var(--bd)] text-xs font-semibold uppercase tracking-wider text-slate-500"><span>Nhận định</span><span class="w-[9.5rem] text-center">Chọn đáp án</span></div><div class="divide-y divide-[color:var(--bd)]">`+x.ord.filter(o=>o<x.opts.length).map((o,p)=>`<div class="grid sm:grid-cols-[1fr_auto] gap-x-4 gap-y-3 items-center px-4 py-3.5"><div><b class="text-[color:var(--ac-t)]">${'abcd'[p]})</b> ${rtf(x.opts[o])}</div><div class="flex gap-2 sm:w-[9.5rem]">${[true,false].map(v=>`<button class="flex-1 py-1.5 rounded-lg border font-medium ${rv?(x.ans[o]===v?'ok':a?.[o]===v?'no':'border-slate-300'):(a?.[o]===v?'sel':'border-slate-300')}" onclick="(ex.ans[${x.i}]=ex.ans[${x.i}]||[null,null,null,null])[${o}]=${v};render()">${v?'Đúng':'Sai'}</button>`).join('')}</div></div>`).join('')+`</div></div>`;
  else body=`<input class="inp mt-3" placeholder="Nhập đáp án..." value="${esc(a||'')}" oninput="ex.ans[${x.i}]=this.value;$('#pal').innerHTML=palH()">${rv?`<div class="opt ok mt-2">Đáp án: ${esc(x.ans.join(' | '))}</div>`:''}`;
  return `<div class="max-w-5xl mx-auto p-3"><div class="card flex items-center gap-2 sm:gap-3 sticky top-2 z-20" style="padding:.6rem .8rem"><b class="mr-auto truncate min-w-0">${esc(q.title)}</b>${ex.pm?'<span class="badge shrink-0">Luyện tập</span>':''}${q.anti&&!ex.pm?`<span class="text-amber-600 text-sm" title="Số lần rời màn hình"><i class="fa fa-eye"></i> <span id="tb">${ex.tabs}</span></span>`:''}${tbtn()}<b id="tm" class="text-xl text-[color:var(--ac-t)]">${fmt(ex.pm?el():left())}</b><button class="btn bg whitespace-nowrap shrink-0" onclick="if(confirm('Nộp bài ngay?'))submit()">Nộp bài</button></div><div class="h-2 bg-[color:var(--mu)] rounded-full my-3 overflow-hidden"><div class="h-full bg-[color:var(--ok)] transition-all" style="width:${n/qs.length*100}%"></div></div><div class="grid md:grid-cols-[1fr_220px] gap-3"><div class="card"><div class="flex justify-between items-center mb-2"><h3 class="font-bold text-[color:var(--ac-t)]">Câu ${cur+1}/${qs.length}: ${{mc:'Trắc nghiệm',tf:'Đúng/Sai',sa:'Trả lời ngắn'}[x.type]}</h3><button onclick="ex.flag[${x.i}]=!ex.flag[${x.i}];render()" class="${ex.flag[x.i]?'text-amber-600 font-semibold':'text-slate-400'}"><i class="fa fa-flag"></i> Phân vân</button></div>${x.group?`<div class="mb-4 p-4 bg-[color:var(--mu)] border border-[color:var(--bd)] rounded-xl whitespace-pre-line text-[color:var(--tx)] leading-relaxed max-h-80 overflow-y-auto"><div class="text-xs font-bold uppercase tracking-wider text-[color:var(--ac-t)] mb-1"><i class="fa fa-book-open"></i> Nội dung bài đọc / Yêu cầu chung:</div><div data-hl="g${x.i}">${HL['g'+x.i]??rtf(x.group,x.num)}</div></div>`:''}<p data-hl="t${x.i}" class="my-3 whitespace-pre-line font-semibold text-[color:var(--tx)]">${HL['t'+x.i]??rtf(qTxt)}</p>${rv?`<div class="pointer-events-none">${body}</div>`:body}${ex.pm?(rv?`<div class="mt-4 p-4 rounded-xl border border-[color:var(--bd)] bg-[color:var(--mu)] whitespace-pre-line"><b><i class="fa fa-lightbulb mr-1.5"></i>Lời giải</b><div class="mt-1">${x.exp?rtf(x.exp):'Câu này chưa có lời giải chi tiết.'}</div></div>`:`<button class="btn b2 mt-4" onclick="ex.rv[${x.i}]=1;render()"><i class="fa fa-eye mr-1.5"></i>Xem đáp án và lời giải</button>`):''}<div class="flex justify-between mt-5"><button class="btn b2" ${cur?'':'disabled'} onclick="ex.cur--;render()">Câu trước</button><button class="btn" ${cur<qs.length-1?'':'disabled'} onclick="ex.cur++;render()">Câu sau</button></div></div><div class="card h-fit order-first md:order-none" style="padding:.75rem"><p class="text-sm text-slate-500 mb-2">Đã làm ${n}/${qs.length}</p><div id="pal" class="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-5 md:overflow-visible md:pb-0">${palH()}</div></div></div></div>`}
-const cheat=()=>{if(!ex||ex.pm||!ex.q.anti||Date.now()-ex.last<1500)return;ex.last=Date.now();ex.tabs++;toast(`Cảnh báo: bạn vừa rời khỏi màn hình làm bài (lần ${ex.tabs})`,'err');const e=$('#tb');if(e)e.textContent=ex.tabs};
+const cheat=()=>{if(!ex||ex.pm||!ex.q.anti||Date.now()-ex.last<1500)return;ex.last=Date.now();ex.tabs++;toast(`Cảnh báo: bạn rời màn hình (lần ${ex.tabs})`,'err');const e=$('#tb');if(e)e.textContent=ex.tabs};
 document.addEventListener('visibilitychange',()=>document.hidden&&cheat());addEventListener('blur',cheat);
-// ===== Chấm điểm =====
 function grade(q,ans){let pts=0,ok=0;const per=10/q.qs.length;
  q.qs.forEach((x,i)=>{const a=ans[i];let f=0,full=0;
   if(x.type=='mc'){f=(x.ans&&a==='ABCD'.indexOf(x.ans))?1:0;full=f}
@@ -334,7 +690,7 @@ async function submit(){if(!ex)return;clearInterval(tm);const{q}=ex,t=ex.pm?Math
  ex=null;await save('results',r);curR=r;view='res';render()}
 const canRev=r=>quizOf(r)?.show||me.role=='admin'||canEdit(quizOf(r));
 const resH=()=>{const r=curR,rows=lbRows(r.quizId,''),k=rows.findIndex(x=>x.userId==me.id),top=rows.slice(0,10).map((x,i)=>({...lbItem(x),pos:i+1}));if(k>=10)top.push({...lbItem(rows[k]),pos:k+1});
- return `<div class="max-w-xl mx-auto space-y-4"><div class="card text-center space-y-2"><h2 class="text-xl font-bold">${r.pm?'Hoàn thành luyện tập':'Đã nộp bài'}</h2>${r.pm?`<div class="text-5xl font-extrabold text-[color:var(--ac-t)]">${r.base}</div><p class="text-slate-500">Điểm trên thang 10 · lượt luyện tập không tính vào xếp hạng</p>`:`<div class="text-5xl font-extrabold text-[color:var(--ac-t)]">${r.rank}</div><p class="text-slate-500">Tổng điểm xếp hạng</p><p>Điểm gốc: <b>${r.base}</b>/10, thưởng tốc độ: <b class="text-[color:var(--ac-t)]">+${r.speed}</b></p>`}<p>Đúng ${r.ok}/${r.total} câu, thời gian ${fmt(r.time)}, chuyển tab ${r.tabs} lần</p>${k>=0?`<p class="font-medium">Hạng của bạn trong đề này: <b class="text-[color:var(--ac-t)]">#${k+1}</b> / ${rows.length}</p>`:''}<div class="flex gap-2 justify-center pt-2 flex-wrap">${canRev(r)?`<button class="btn" onclick="review('${r.id}')">Xem lại bài</button>${r.total>r.ok?`<button class="btn b2" onclick="review('${r.id}','bad')">Xem câu sai (${r.total-r.ok})</button>`:''}`:''}<button class="btn b2" onclick="hist('${r.quizId}')">Lịch sử đề này</button><button class="btn b2" onclick="go('home')">Trang chủ</button></div></div>
+ return `<div class="max-w-xl mx-auto space-y-4"><div class="card text-center space-y-2"><h2 class="text-xl font-bold">${r.pm?'Hoàn thành luyện tập':'Đã nộp bài'}</h2>${r.pm?`<div class="text-5xl font-extrabold text-[color:var(--ac-t)]">${r.base}</div><p class="text-slate-500">Điểm trên thang 10 · lượt luyện tập không tính vào xếp hạng</p>`:`<div class="text-5xl font-extrabold text-[color:var(--ac-t)]">${r.rank}</div><p class="text-slate-500">Tổng điểm xếp hạng</p><p>Điểm gốc: <b>${r.base}</b>/10, thưởng tốc độ: <b class="text-[color:var(--ac-t)]">+${r.speed}</b></p>`}<p>Đúng ${r.ok}/${r.total} câu, thời gian ${fmt(r.time)}, chuyển tab ${r.tabs} lần</p>${k>=0?`<p class="font-medium">Hạng của bạn: <b class="text-[color:var(--ac-t)]">#${k+1}</b> / ${rows.length}</p>`:''}<div class="flex gap-2 justify-center pt-2 flex-wrap">${canRev(r)?`<button class="btn" onclick="review('${r.id}')">Xem lại bài</button>${r.total>r.ok?`<button class="btn b2" onclick="review('${r.id}','bad')">Xem câu sai (${r.total-r.ok})</button>`:''}`:''}<button class="btn b2" onclick="hist('${r.quizId}')">Lịch sử</button><button class="btn b2" onclick="go('home')">Trang chủ</button></div></div>
  <div class="card" style="padding:.5rem"><div class="flex items-center justify-between gap-3 px-3 pt-2 pb-1"><h3 class="font-semibold truncate">Bảng xếp hạng · ${esc(quizOf(r)?.title||'')}</h3><button class="text-sm shrink-0 text-[color:var(--ac-t)]" onclick="lb.q='${r.quizId}';go('lb')">Xem đầy đủ</button></div>${rankList(top)}</div></div>`};
 let rvf='all';
 const dtf=ts=>ts?new Date(ts).toLocaleString('vi-VN',{dateStyle:'medium',timeStyle:'short'}):'';
@@ -344,7 +700,7 @@ function qres(x,a){
  if(x.type=='mc'){const got=a!==undefined&&a!==null;return{s:x.ans&&a==='ABCD'.indexOf(x.ans)?'ok':got?'bad':'blank'}}
  if(x.type=='tf'){const k=x.ans.filter((v,j)=>a?.[j]===v).length,got=Array.isArray(a)&&a.some(v=>v!=null);return k==x.ans.length?{s:'ok'}:{s:got?'bad':'blank',part:got?`${k}/${x.ans.length} ý đúng`:''}}
  const got=!!(a&&String(a).trim());return{s:got&&x.ans.some(v=>nz(v)==nz(a))?'ok':got?'bad':'blank'}}
-function revH(){const r=curR,q=quizOf(r);if(!q||!canRev(r))return '<p>Đề này không cho phép xem lại đáp án.</p>';
+function revH(){const r=curR,q=quizOf(r);if(!q||!canRev(r))return '<p>Đề này không cho xem lại.</p>';
  const st=q.qs.map((x,i)=>qres(x,r.answers[i])),nOk=st.filter(s=>s.s=='ok').length,nBad=st.length-nOk;
  const tab=(k,l,c,cl)=>`<button onclick="rvf='${k}';render()" class="px-3.5 py-1.5 rounded-lg text-sm font-semibold border transition ${rvf==k?cl:'bg-white border-[color:var(--bd)] text-slate-600 hover:border-[color:var(--ac)]'}">${l} <span class="opacity-70">${c}</span></button>`;
  const BD={ok:['Đúng','bg-[color:var(--ok-s)] text-[color:var(--ok-t)]','fa-circle-check'],bad:['Sai','bg-[color:var(--er-s)] text-[color:var(--er-t)]','fa-circle-xmark'],blank:['Chưa trả lời','bg-[color:var(--mu)] text-slate-600','fa-circle-minus']};
@@ -358,14 +714,13 @@ function revH(){const r=curR,q=quizOf(r);if(!q||!canRev(r))return '<p>Đề này
  return `<div class="flex flex-wrap items-end justify-between gap-3 mb-3"><div><p class="text-xs uppercase tracking-widest text-[color:var(--tx2)] font-bold mb-1">Xem lại bài làm</p><h2 class="text-2xl font-bold">${esc(q.title)}</h2><p class="text-sm text-slate-500 mt-1">${dtf(r.ts)}</p></div><div class="text-right"><div class="text-2xl font-extrabold text-[color:var(--ac-t)]">${r.base}/10</div><div class="text-xs text-slate-500">Điểm gốc</div></div></div>
  <div class="card mb-4"><div class="h-2 rounded-full bg-[color:var(--er-s)] overflow-hidden mb-3"><div class="h-full bg-[color:var(--ok-b)]" style="width:${nOk/st.length*100}%"></div></div><div class="flex flex-wrap gap-2 mb-3">${tab('all','Tất cả',st.length,'bg-[color:var(--ac)] border-[color:var(--ac)] text-white')}${tab('ok','Đúng',nOk,'bg-[color:var(--ok-s)] border-[color:var(--ok-b)] text-[color:var(--ok-t)]')}${tab('bad','Sai',nBad,'bg-[color:var(--er-s)] border-[color:var(--er-b)] text-[color:var(--er-t)]')}</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
  ${cards||`<div class="card text-center py-10 text-slate-500">${rvf=='bad'?'Bạn không sai câu nào.':'Không có câu nào.'}</div>`}
- <div class="flex gap-2 flex-wrap"><button class="btn b2" onclick="hist('${r.quizId}')">Lịch sử đề này</button><button class="btn b2" onclick="go('home')">Về trang chủ</button></div>`}
-// ===== Lịch sử =====
+ <div class="flex gap-2 flex-wrap"><button class="btn b2" onclick="hist('${r.quizId}')">Lịch sử</button><button class="btn b2" onclick="go('home')">Trang chủ</button></div>`}
 let hq='';
 function hist(id){hq=id;view='history';window.scrollTo(0,0);render()}
 function histH(){
  const q=S.quizzes.find(x=>x.id==hq);
  const back=`<button class="btn b2" onclick="go('home')"><i class="fa fa-arrow-left mr-1"></i> Danh sách đề</button>`;
- if(!q)return `<div class="card text-center py-10"><p class="text-slate-500 mb-3">Đề thi này không còn tồn tại.</p>${back}</div>`;
+ if(!q)return `<div class="card text-center py-10"><p class="text-slate-500 mb-3">Đề không tồn tại.</p>${back}</div>`;
  const rows=S.results.filter(r=>r.userId==me.id&&r.quizId==hq).sort((a,b)=>(b.ts||0)-(a.ts||0));
  const n=rows.length,best=Math.max(0,...rows.filter(r=>!r.pm).map(r=>r.rank||0));
  const stat=(l,v)=>`<div class="rounded-xl border border-[color:var(--bd)] bg-white px-4 py-3"><div class="text-xs text-slate-500">${l}</div><div class="text-2xl font-bold text-[color:var(--ac-t)]">${v}</div></div>`;
@@ -381,41 +736,38 @@ function histH(){
      <div class="w-11 h-11 rounded-xl bg-[color:var(--mu)] text-[color:var(--ac-t)] flex items-center justify-center shrink-0 font-bold text-sm">#${no}</div>
      <div class="flex-1 min-w-[180px]">
       <div class="font-bold">Lần ${no}${r.pm?' <span class="badge">Luyện tập</span>':''}${n>1&&!r.pm&&r.rank==best?' <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-[color:var(--ok-s)] text-[color:var(--ok-t)] ml-1">Tốt nhất</span>':''}</div>
-      <div class="text-sm text-slate-500 mt-1"><i class="fa fa-calendar-days mr-1"></i>${dtf(r.ts)||'Không rõ thời gian'}</div>
+      <div class="text-sm text-slate-500 mt-1"><i class="fa fa-calendar-days mr-1"></i>${dtf(r.ts)||'Không rõ'}</div>
       <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600 mt-3">
        <span><i class="fa fa-circle-check text-[color:var(--ac-t)] mr-1"></i>Đúng <b>${r.ok??0}/${r.total??0}</b></span>
        <span><i class="fa fa-circle-xmark text-[color:var(--er-t)] mr-1"></i>Sai <b>${(r.total??0)-(r.ok??0)}</b></span>
        <span><i class="fa fa-stopwatch mr-1"></i>${fmt(r.time||0)}</span>
-       <span><i class="fa fa-arrow-right-arrow-left mr-1"></i>Chuyển tab: ${r.tabs||0}</span>
+       <span><i class="fa fa-arrow-right-arrow-left mr-1"></i>Tab: ${r.tabs||0}</span>
       </div>
      </div>
-     <div class="text-right min-w-[82px]"><div class="text-2xl font-extrabold text-[color:var(--ac-t)]">${Number(r.rank||0).toFixed(2)}</div><div class="text-xs text-slate-500">Điểm xếp hạng</div><div class="text-xs text-slate-500 mt-1">Điểm gốc ${Number(r.base||0).toFixed(2)}/10</div></div>
+     <div class="text-right min-w-[82px]"><div class="text-2xl font-extrabold text-[color:var(--ac-t)]">${Number(r.rank||0).toFixed(2)}</div><div class="text-xs text-slate-500">Điểm XH</div><div class="text-xs text-slate-500 mt-1">Gốc ${Number(r.base||0).toFixed(2)}/10</div></div>
     </div>
     <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-[color:var(--bd)]">
-     ${can?`<button class="btn b2" onclick="review('${r.id}')"><i class="fa fa-book-open mr-1"></i> Xem lại bài</button>${(r.total-r.ok)>0?`<button class="btn b2" onclick="review('${r.id}','bad')"><i class="fa fa-circle-xmark mr-1 text-[color:var(--er-t)]"></i> Xem câu sai (${r.total-r.ok})</button>`:''}`:`<span class="text-xs text-slate-500 self-center">Đề này không cho xem lại đáp án.</span>`}
+     ${can?`<button class="btn b2" onclick="review('${r.id}')"><i class="fa fa-book-open mr-1"></i> Xem lại</button>${(r.total-r.ok)>0?`<button class="btn b2" onclick="review('${r.id}','bad')"><i class="fa fa-circle-xmark mr-1 text-[color:var(--er-t)]"></i> Câu sai (${r.total-r.ok})</button>`:''}`:`<span class="text-xs text-slate-500 self-center">Không cho xem lại.</span>`}
     </div>
-   </article>`}).join('')}</div>`:`<div class="card text-center py-12"><div class="w-14 h-14 mx-auto rounded-2xl bg-[color:var(--mu)] text-[color:var(--tx2)] flex items-center justify-center text-xl mb-3"><i class="fa fa-clock-rotate-left"></i></div><h3 class="font-bold text-lg">Chưa có lượt làm nào cho đề này</h3><p class="text-sm text-slate-500 mt-1">Sau khi nộp bài, kết quả sẽ xuất hiện ở đây.</p></div>`}
+   </article>`}).join('')}</div>`:`<div class="card text-center py-12"><div class="w-14 h-14 mx-auto rounded-2xl bg-[color:var(--mu)] text-[color:var(--tx2)] flex items-center justify-center text-xl mb-3"><i class="fa fa-clock-rotate-left"></i></div><h3 class="font-bold text-lg">Chưa có lượt làm nào</h3></div>`}
  </section>`}
-
-// ===== Xếp hạng & CSV =====
 const lbRows=(qid=lb.q,c=lb.c)=>{const b={};S.results.filter(r=>r.quizId==qid&&!r.pm&&(!c||r.classId==c)).forEach(r=>{if(!b[r.userId]||r.rank>b[r.userId].rank)b[r.userId]=r});return Object.values(b).sort((a,z)=>z.rank-a.rank||a.time-z.time)};
 const lbItem=r=>({userId:r.userId,name:r.name,classId:r.classId,main:Number(r.rank).toFixed(2),unit:'điểm xếp hạng',sub:`Gốc ${r.base} · ${r.ok}/${r.total} · ${fmt(r.time)}${r.tabs?` · tab ${r.tabs}`:''}`});
 function avgRows(){const by={};S.results.filter(r=>!r.pm&&S.quizzes.some(q=>q.id==r.quizId)).forEach(r=>{const k=r.userId+'|'+r.quizId;if(!by[k]||r.rank>by[k].rank)by[k]=r});const u={};Object.values(by).forEach(r=>(u[r.userId]??=[]).push(r));
  return Object.entries(u).map(([id,a])=>{const us=S.users.find(x=>x.id==id),avg=a.reduce((t,r)=>t+r.base,0)/a.length;return{userId:id,name:us?.name||a[0].name,classId:us?.classId??a[0].classId,main:avg.toFixed(2),avg,unit:'điểm TB',sub:`${a.length} đề đã làm`,time:a.reduce((t,r)=>t+r.time,0),n:a.length}}).filter(r=>!lb.c||r.classId==lb.c).sort((a,b)=>b.avg-a.avg||b.n-a.n||a.time-b.time)}
 const MD=['🥇','🥈','🥉'];
-function rankList(rows){if(!rows.length)return emp('fa-trophy','Chưa có kết quả nào.');let prev=0;
+function rankList(rows){if(!rows.length)return emp('fa-trophy','Chưa có kết quả.');let prev=0;
  return rows.map((r,i)=>{const pos=r.pos||i+1,you=r.userId==me.id,u=S.users.find(x=>x.id==r.userId)||{username:r.userId,name:r.name},gap=i&&pos>prev+1?'<div class="text-center text-slate-500 text-xs py-1">···</div>':'';prev=pos;
   return gap+`<div class="flex items-center gap-3 px-3 py-3 rounded-xl" style="${you?'background:var(--ac-s)':''}"><div class="w-8 text-center shrink-0 ${pos<=3?'text-2xl':'font-semibold text-slate-500 num'}">${pos<=3?MD[pos-1]:pos}</div><img src="${av(u)}" class="w-10 h-10 rounded-full object-cover shrink-0"><div class="flex-1 min-w-0"><div class="flex items-center gap-1.5 min-w-0"><span class="font-medium truncate">${esc(r.name)}</span>${you?'<span class="badge shrink-0">Bạn</span>':''}</div><div class="text-xs text-slate-500 truncate">${esc(cn(r.classId))} · ${r.sub}</div></div><div class="text-right shrink-0"><div class="text-xl font-bold num" style="color:var(--ac-t)">${r.main}</div><div class="text-[11px] text-slate-500">${r.unit}</div></div></div>`}).join('')}
 function lbH(){if(lb.q!='all'&&!S.quizzes.some(x=>x.id==lb.q))lb.q='all';
  const all=lb.q=='all',q=S.quizzes.find(x=>x.id==lb.q),rows=(all?avgRows():lbRows().map(lbItem)).map((r,i)=>({...r,pos:i+1})),k=rows.findIndex(r=>r.userId==me.id);
- return `<p class="eyebrow mb-1">Bảng xếp hạng</p><h1 class="text-2xl font-bold tracking-tight mb-1">${all?'Tổng hợp':esc(q.title)}</h1><p class="text-sm text-slate-500 mb-4">${all?'Xếp theo điểm trung bình các đề đã làm (lấy lượt tốt nhất mỗi đề).':'Xếp theo điểm xếp hạng (điểm gốc cộng thưởng tốc độ).'}</p>
- <div class="grid sm:grid-cols-[1fr_auto_auto] gap-2 mb-4"><select class="inp" onchange="lb.q=this.value;render()"><option value="all" ${all?'selected':''}>Tổng hợp · điểm trung bình</option>${S.quizzes.filter(canSee).map(x=>`<option value="${x.id}" ${x.id==lb.q?'selected':''}>${esc(x.title)}</option>`).join('')}</select><select class="inp" onchange="lb.c=this.value;render()"><option value="">Tất cả lớp</option>${clsOpts(lb.c)}</select>${!all&&canEdit(q)?`<button class="btn bg" onclick="csv()"><i class="fa fa-file-excel mr-1.5"></i>Xuất CSV</button>`:''}</div>
+ return `<p class="eyebrow mb-1">Bảng xếp hạng</p><h1 class="text-2xl font-bold tracking-tight mb-1">${all?'Tổng hợp':esc(q.title)}</h1><p class="text-sm text-slate-500 mb-4">${all?'Xếp theo điểm TB các đề (lượt tốt nhất mỗi đề).':'Xếp theo điểm xếp hạng.'}</p>
+ <div class="grid sm:grid-cols-[1fr_auto_auto] gap-2 mb-4"><select class="inp" onchange="lb.q=this.value;render()"><option value="all" ${all?'selected':''}>Tổng hợp · điểm TB</option>${S.quizzes.filter(canSee).map(x=>`<option value="${x.id}" ${x.id==lb.q?'selected':''}>${esc(x.title)}</option>`).join('')}</select><select class="inp" onchange="lb.c=this.value;render()"><option value="">Tất cả lớp</option>${clsOpts(lb.c)}</select>${!all&&canEdit(q)?`<button class="btn bg" onclick="csv()"><i class="fa fa-file-excel mr-1.5"></i>Xuất CSV</button>`:''}</div>
  <div class="card mb-3 flex items-center justify-between" style="padding:1rem 1.25rem"><div><div class="text-xs text-slate-500">Hạng của bạn</div><div class="text-2xl font-extrabold num">${k>=0?'#'+(k+1):'—'}<span class="text-sm font-medium text-slate-500"> / ${rows.length}</span></div></div><div class="text-right">${k>=0?`<div class="text-2xl font-extrabold num" style="color:var(--ac-t)">${rows[k].main}</div><div class="text-xs text-slate-500">${rows[k].unit}</div>`:'<span class="text-sm text-slate-500">Bạn chưa có kết quả</span>'}</div></div>
  <div class="card" style="padding:.5rem">${rankList(rows)}</div>`}
-function csv(){const q=S.quizzes.find(x=>x.id==lb.q),h=['Hạng','Họ tên','Tài khoản','Lớp','Điểm xếp hạng','Điểm gốc','Thưởng tốc độ','Số câu đúng','Thời gian','Chuyển tab'];
+function csv(){const q=S.quizzes.find(x=>x.id==lb.q),h=['Hạng','Họ tên','Tài khoản','Lớp','Điểm XH','Điểm gốc','Thưởng tốc độ','Số câu đúng','Thời gian','Chuyển tab'];
  const s=[h,...lbRows().map((r,i)=>[i+1,r.name,S.users.find(u=>u.id==r.userId)?.username,cn(r.classId),r.rank,r.base,r.speed,r.ok,fmt(r.time),r.tabs])].map(a=>a.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
  const l=document.createElement('a');l.href=URL.createObjectURL(new Blob(['\ufeff'+s],{type:'text/csv;charset=utf-8'}));l.download=`bang-diem-${q?.title||'de'}.csv`;l.click()}
-// ===== Admin: tạo / sửa đề =====
 function toRaw(qs){
   let out='',lastG='';
   qs.forEach((x,i)=>{
@@ -444,40 +796,31 @@ Câu 2:
 *A. about
 B. with
 C. in
-D. at
-
-Câu 3: Cho các nhận định sau:
-*a) Nhận định đúng
-b) Nhận định sai
-*c) Nhận định đúng
-d) Nhận định sai
-
-Câu 4: Tính $\\sqrt{25}\\div 2$.
-*ĐA: 2,5 | 2.5`;
-function quizForm(id=null){if(!canMake()||(id&&!canEdit(S.quizzes.find(x=>x.id==id))))return toast('Bạn không có quyền tạo hoặc sửa đề','err');editId=id;const q=id?S.quizzes.find(x=>x.id==id):null,raw=q?toRaw(q.qs):'';
+D. at`;
+function quizForm(id=null){if(!canMake()||(id&&!canEdit(S.quizzes.find(x=>x.id==id))))return toast('Bạn không có quyền','err');editId=id;const q=id?S.quizzes.find(x=>x.id==id):null,raw=q?toRaw(q.qs):'';
  $('#modal').innerHTML=`<div class="ed fixed inset-0 z-40 flex flex-col" data-t="code" style="background:var(--bg)">
- <header class="flex items-center gap-2 px-3 py-2.5 border-b border-[color:var(--bd)]" style="background:var(--sf)"><button class="ib" onclick="closeEd()" title="Đóng"><i class="fa fa-xmark"></i></button><b>${q?'Cập nhật đề thi':'Tạo đề mới'}</b><span id="edinfo" class="text-xs text-slate-500 ml-1"></span>
-  <div class="ml-auto flex items-center gap-2"><label class="btn b2 cursor-pointer"><i class="fa fa-file-arrow-up sm:mr-1.5"></i><span class="hidden sm:inline">Tải .txt</span><input type="file" accept=".txt" hidden onchange="readTxt(this)"></label><button class="btn b2" onclick="skel()"><i class="fa fa-wand-magic-sparkles sm:mr-1.5"></i><span class="hidden sm:inline">Khung mẫu</span></button><button class="btn" onclick="saveQ()">${q?'Lưu cập nhật':'Lưu đề'}</button></div></header>
+ <header class="flex items-center gap-2 px-3 py-2.5 border-b border-[color:var(--bd)]" style="background:var(--sf)"><button class="ib" onclick="closeEd()" title="Đóng"><i class="fa fa-xmark"></i></button><b>${q?'Cập nhật đề':'Tạo đề mới'}</b><span id="edinfo" class="text-xs text-slate-500 ml-1"></span>
+  <div class="ml-auto flex items-center gap-2"><label class="btn b2 cursor-pointer"><i class="fa fa-file-arrow-up sm:mr-1.5"></i><span class="hidden sm:inline">Tải .txt</span><input type="file" accept=".txt" hidden onchange="readTxt(this)"></label><button class="btn b2" onclick="skel()"><i class="fa fa-wand-magic-sparkles sm:mr-1.5"></i><span class="hidden sm:inline">Khung mẫu</span></button><button class="btn" onclick="saveQ()">${q?'Lưu':'Lưu đề'}</button></div></header>
  <details class="px-4 py-2 border-b border-[color:var(--bd)]" ${q?'':'open'}><summary class="cursor-pointer text-sm font-medium">Cấu hình đề thi</summary>
   <div class="grid gap-3 md:grid-cols-4 mt-3 pb-1"><input id="qt" class="inp md:col-span-2" placeholder="Tên đề thi" value="${esc(q?.title||'')}"><input id="qd" type="number" class="inp" value="${q?.dur||45}" min="1" title="Thời gian (phút)"><select id="qc" class="inp"><option value="">Tất cả các lớp</option>${clsOpts(q?.classId)}</select>
-  <select id="qm" class="inp"><option value="multi" ${q?.mode=='once'?'':'selected'}>Luyện tập (học sinh chọn Luyện tập hoặc Thi thử)</option><option value="once" ${q?.mode=='once'?'selected':''}>Kiểm tra (1 lần)</option></select>
-  <div class="text-sm md:col-span-3 flex flex-wrap gap-x-5 gap-y-1 items-center"><label><input type="checkbox" id="q1" ${q?.shuffle?'checked':''}> Đảo câu hỏi và đáp án</label><label><input type="checkbox" id="q2" ${q?q.anti?'checked':'':'checked'}> Chống gian lận</label><label><input type="checkbox" id="q3" ${q?q.show?'checked':'':'checked'}> Cho xem đáp án và lời giải</label></div></div></details>
+  <select id="qm" class="inp"><option value="multi" ${q?.mode=='once'?'':'selected'}>Luyện tập</option><option value="once" ${q?.mode=='once'?'selected':''}>Kiểm tra (1 lần)</option></select>
+  <div class="text-sm md:col-span-3 flex flex-wrap gap-x-5 gap-y-1 items-center"><label><input type="checkbox" id="q1" ${q?.shuffle?'checked':''}> Đảo câu hỏi và đáp án</label><label><input type="checkbox" id="q2" ${q?q.anti?'checked':'':'checked'}> Chống gian lận</label><label><input type="checkbox" id="q3" ${q?q.show?'checked':'':'checked'}> Cho xem đáp án</label></div></div></details>
  <div class="seg lg:hidden mx-3 mt-3"><button class="on" data-k="code" onclick="edTab('code')">Soạn mã</button><button data-k="pv" onclick="edTab('pv')">Xem trước</button></div>
  <div class="flex-1 min-h-0 grid lg:grid-cols-2 grid-rows-[minmax(0,1fr)] mt-3 lg:mt-0">
   <section id="edR" class="min-h-0 overflow-auto p-4"><div id="pv"></div></section>
-  <section id="edL" class="min-h-0 flex-col lg:border-l border-[color:var(--bd)]"><div class="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 border-b border-[color:var(--bd)]">Mã đề</div><textarea id="qx" spellcheck="false" class="flex-1 min-h-0 w-full p-4 font-mono text-[13px] leading-6 outline-none resize-none" oninput="edPrev()" placeholder="Dán hoặc gõ đề vào đây..."></textarea></section></div></div>`;
+  <section id="edL" class="min-h-0 flex-col lg:border-l border-[color:var(--bd)]"><div class="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 border-b border-[color:var(--bd)]">Mã đề</div><textarea id="qx" spellcheck="false" class="flex-1 min-h-0 w-full p-4 font-mono text-[13px] leading-6 outline-none resize-none" oninput="edPrev()"></textarea></section></div></div>`;
  edInit=raw;$('#qx').value=raw;edPrev(1)}
 const edTab=t=>{$('.ed').dataset.t=t;document.querySelectorAll('.ed .seg button').forEach(b=>b.classList.toggle('on',b.dataset.k==t));if(t=='pv')edPrev(1)};
-function closeEd(){if($('#qx').value!==edInit&&!confirm('Đóng và bỏ các thay đổi chưa lưu?'))return;$('#modal').innerHTML=''}
-const skel=()=>{if($('#qx').value.trim()&&!confirm('Thay nội dung hiện tại bằng khung mẫu?'))return;$('#qx').value=ED_SKEL;edPrev(1)};
+function closeEd(){if($('#qx').value!==edInit&&!confirm('Bỏ thay đổi chưa lưu?'))return;$('#modal').innerHTML=''}
+const skel=()=>{if($('#qx').value.trim()&&!confirm('Thay bằng khung mẫu?'))return;$('#qx').value=ED_SKEL;edPrev(1)};
 function readTxt(el){const f=el.files[0];if(f){const r=new FileReader();r.onload=()=>{$('#qx').value=r.result;edPrev(1)};r.readAsText(f)}}
 function edPrev(now){clearTimeout(edT);const run=()=>{const v=$('#qx').value;EP=parse(v,1);const h=(v.match(/^\s*Câu\s*\d+\s*[:.]/gim)||[]).length,r=$('#edR'),y=r.scrollTop;
-  $('#pv').innerHTML=edH();r.scrollTop=y;math();$('#edinfo').innerHTML=`${EP.length} câu`+(h>EP.length?` <span style="color:var(--wa-t)">· ${h-EP.length} câu chưa nhận diện (thiếu đáp án A–D, a–d hoặc *ĐA)</span>`:'')};now?run():edT=setTimeout(run,180)}
-function edH(){if(!EP.length)return `<div class="text-center py-16 text-slate-500"><i class="fa fa-wand-magic-sparkles text-2xl mb-3"></i><p>Bản xem trước xuất hiện khi bạn soạn đề ở khung mã.</p><button class="btn b2 mt-3" onclick="skel()">Chèn khung mẫu</button></div>`;
- return `<p class="text-xs text-slate-500 mb-3"><i class="fa fa-hand-pointer mr-1"></i>Bấm vào đáp án để đặt đáp án đúng, mã bên trái tự cập nhật.</p>`+EP.map((x,i)=>{let b='';
-  if(x.type=='mc')b=(x.ans?'':`<p class="text-xs mb-1" style="color:var(--wa-t)">Chưa chọn đáp án đúng, bấm vào một đáp án.</p>`)+x.opts.map((o,k)=>`<button class="opt ${'ABCD'[k]==x.ans?'ok':''}" onclick="edMC(${i},${k})"><b>${'ABCD'[k]}.</b> ${rtf(o)}${'ABCD'[k]==x.ans?'<i class="fa fa-circle-check float-right mt-1"></i>':''}</button>`).join('');
+  $('#pv').innerHTML=edH();r.scrollTop=y;math();$('#edinfo').innerHTML=`${EP.length} câu`+(h>EP.length?` <span style="color:var(--wa-t)">· ${h-EP.length} chưa nhận diện</span>`:'')};now?run():edT=setTimeout(run,180)}
+function edH(){if(!EP.length)return `<div class="text-center py-16 text-slate-500"><i class="fa fa-wand-magic-sparkles text-2xl mb-3"></i><p>Bản xem trước khi soạn đề.</p><button class="btn b2 mt-3" onclick="skel()">Chèn khung mẫu</button></div>`;
+ return `<p class="text-xs text-slate-500 mb-3"><i class="fa fa-hand-pointer mr-1"></i>Bấm vào đáp án để đặt đáp án đúng.</p>`+EP.map((x,i)=>{let b='';
+  if(x.type=='mc')b=(x.ans?'':`<p class="text-xs mb-1" style="color:var(--wa-t)">Chưa chọn đáp án đúng.</p>`)+x.opts.map((o,k)=>`<button class="opt ${'ABCD'[k]==x.ans?'ok':''}" onclick="edMC(${i},${k})"><b>${'ABCD'[k]}.</b> ${rtf(o)}${'ABCD'[k]==x.ans?'<i class="fa fa-circle-check float-right mt-1"></i>':''}</button>`).join('');
   else if(x.type=='tf')b=`<div class="rounded-xl border border-[color:var(--bd)] divide-y divide-[color:var(--bd)] overflow-hidden mt-2">${x.opts.map((o,k)=>`<div class="grid sm:grid-cols-[1fr_auto] gap-x-4 gap-y-2 items-center px-4 py-3"><div><b class="text-[color:var(--ac-t)]">${'abcd'[k]})</b> ${rtf(o)}</div><div class="flex gap-2 sm:w-[9.5rem]">${[true,false].map(v=>`<button class="flex-1 py-1.5 rounded-lg border font-medium ${x.ans[k]===v?'ok':'border-slate-300'}" onclick="edTF(${i},${k},${v})">${v?'Đúng':'Sai'}</button>`).join('')}</div></div>`).join('')}</div>`;
-  else b=`<input class="inp mt-2" value="${esc(x.ans.join(' | '))}" onchange="edSA(${i},this.value)" placeholder="Đáp án, nhiều cách viết cách nhau bởi |">`;
+  else b=`<input class="inp mt-2" value="${esc(x.ans.join(' | '))}" onchange="edSA(${i},this.value)" placeholder="Đáp án, nhiều cách cách nhau bởi |">`;
   return `<div class="card mb-3" style="padding:1rem"><div class="flex items-center gap-2 mb-2"><b class="text-[color:var(--ac-t)]">Câu ${esc(x.num)}</b><span class="badge">${{mc:'Trắc nghiệm',tf:'Đúng/Sai',sa:'Trả lời ngắn'}[x.type]}</span></div>${x.group&&x.group!=EP[i-1]?.group?`<div class="mb-2 p-3 rounded-xl text-sm leading-relaxed whitespace-pre-line" style="background:var(--mu)">${rtf(x.group,x.num)}</div>`:''}<p class="whitespace-pre-line font-medium mb-1">${rtf(x.text)}</p>${b}${x.exp?`<div class="mt-2 text-xs p-2.5 rounded-lg whitespace-pre-line" style="background:var(--mu)"><b>Lời giải:</b> ${rtf(x.exp)}</div>`:''}</div>`}).join('')}
 function edTop(ta,n,lh){const cs=getComputedStyle(ta),m=document.createElement('div');m.style.cssText=`position:absolute;visibility:hidden;left:-9999px;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:${cs.font};line-height:${cs.lineHeight};padding:${cs.padding};width:${ta.clientWidth}px`;m.textContent=ta.value.split('\n').slice(0,n).join('\n')+(n?'\n':'')+'x';document.body.append(m);const t=m.scrollHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-lh;m.remove();return Math.max(0,t)}
 function edApply(ch,ln){const ta=$('#qx'),L=ta.value.replace(/\r/g,'').split('\n');ch.forEach(([n,f])=>{if(n!=null)L[n]=f(L[n])});const y=ta.scrollTop;ta.value=L.join('\n');ta.scrollTop=y;ta.scrollLeft=0;
@@ -485,30 +828,27 @@ function edApply(ch,ln){const ta=$('#qx'),L=ta.value.replace(/\r/g,'').split('\n
 const edMC=(i,k)=>edApply(EP[i]._L.mc.map((n,j)=>[n,l=>l.replace(/^(\s*)\*?\s*(?=[A-D]\.)/,j==k?'$1*':'$1')]),EP[i]._L.mc[k]);
 const edTF=(i,k,v)=>edApply([[EP[i]._L.tf[k],l=>l.replace(/^(\s*)\*?\s*(?=[a-d]\))/,v?'$1*':'$1')]]);
 const edSA=(i,v)=>edApply([[EP[i]._L.sa,l=>l.replace(/^(\s*\*\s*(?:ĐA|KQ)\s*:\s*).*$/i,(m,a)=>a+v.trim())]]);
-async function saveQ(){const qs=parse($('#qx').value),t=$('#qt').value.trim();if(!t||!qs.length)return toast('Cần nhập tên đề và ít nhất 1 câu hỏi hợp lệ','err');
- const bad=qs.filter(x=>x.type=='mc'&&!x.ans).length;if(bad&&!confirm(`${bad} câu trắc nghiệm chưa chọn đáp án đúng. Vẫn lưu?`))return;
- const old=editId&&S.quizzes.find(x=>x.id==editId);if(editId&&!canEdit(old))return toast('Bạn không có quyền sửa đề này','err');
- await save('quizzes',{id:editId||uid(),ownerId:old?.ownerId||me.id,title:t,dur:+$('#qd').value||45,classId:$('#qc').value,mode:$('#qm').value,shuffle:$('#q1').checked,anti:$('#q2').checked,show:$('#q3').checked,qs});$('#modal').innerHTML='';toast(`Đã lưu đề (${qs.length} câu)`);render()}
-// ===== Admin: lớp học =====
+async function saveQ(){const qs=parse($('#qx').value),t=$('#qt').value.trim();if(!t||!qs.length)return toast('Cần tên đề và ít nhất 1 câu','err');
+ const bad=qs.filter(x=>x.type=='mc'&&!x.ans).length;if(bad&&!confirm(`${bad} câu chưa có đáp án. Vẫn lưu?`))return;
+ const old=editId&&S.quizzes.find(x=>x.id==editId);if(editId&&!canEdit(old))return toast('Không có quyền','err');
+ await save('quizzes',{id:editId||uid(),ownerId:old?.ownerId||me.id,title:t,dur:+$('#qd').value||45,classId:$('#qc').value,mode:$('#qm').value,shuffle:$('#q1').checked,anti:$('#q2').checked,show:$('#q3').checked,qs});$('#modal').innerHTML='';toast(`Đã lưu (${qs.length} câu)`);render()}
 let cmT='cls',cmQ='',cmC='';
 const ROLE={admin:'Quản trị',teacher:'Giáo viên',student:'Học sinh',banned:'Bị khóa'};
-const clsBody=()=>`<div class="flex gap-2 mb-3"><input id="nc" class="inp" placeholder="Tên lớp mới"><button class="btn bg" onclick="addC()">Thêm</button></div>${S.classes.map(c=>{const m=S.users.filter(u=>u.classId==c.id);return `<div class="card mb-2" style="padding:1rem"><div class="flex gap-2 items-center"><b class="mr-auto">${esc(c.name)} <span class="text-slate-500 text-sm font-normal">(${m.length} thành viên)</span></b><button class="btn b2" onclick="renC('${c.id}')"><i class="fa fa-pen"></i></button><button class="btn br" onclick="delC('${c.id}')"><i class="fa fa-trash"></i></button></div><p class="text-sm text-slate-500 mt-1">${m.map(u=>esc(u.name)).join(', ')||'Chưa có thành viên'}</p></div>`}).join('')}`;
+const clsBody=()=>`<div class="flex gap-2 mb-3"><input id="nc" class="inp" placeholder="Tên lớp mới"><button class="btn bg" onclick="addC()">Thêm</button></div>${S.classes.map(c=>{const m=S.users.filter(u=>u.classId==c.id);return `<div class="card mb-2" style="padding:1rem"><div class="flex gap-2 items-center"><b class="mr-auto">${esc(c.name)} <span class="text-slate-500 text-sm font-normal">(${m.length} thành viên)</span></b><button class="btn b2" onclick="renC('${c.id}')"><i class="fa fa-pen"></i></button><button class="btn br" onclick="delC('${c.id}')"><i class="fa fa-trash"></i></button></div><p class="text-sm text-slate-500 mt-1">${m.map(u=>esc(u.name)).join(', ')||'Chưa có'}</p></div>`}).join('')}`;
 function usrRows(){const q=cmQ.trim().toLowerCase(),L=S.users.filter(u=>(!cmC||u.classId==cmC)&&(!q||(u.name+' '+u.username+' '+(u.email||'')).toLowerCase().includes(q)));
- return L.map(u=>{const self=u.id==me.id,bn=u.role=='banned';return `<div class="flex flex-wrap items-center gap-3 py-3 border-b border-[color:var(--bd)] last:border-0"><img src="${av(u)}" class="w-9 h-9 rounded-full object-cover ${bn?'opacity-50':''}"><div class="flex-1 min-w-[150px]"><div class="font-medium">${esc(u.name)}${self?' <span class="badge">Bạn</span>':''}${bn?' <span class="badge warn">Bị khóa</span>':''}</div><div class="text-xs text-slate-500">${esc(u.email||u.username)} · ${esc(cn(u.classId))}</div></div><select class="inp" style="width:auto;padding:.4rem .7rem" ${self?'disabled title="Không thể đổi quyền của chính bạn"':''} onchange="setRole('${u.id}',this.value)">${Object.entries(ROLE).map(([k,l])=>`<option value="${k}" ${u.role==k?'selected':''}>${l}</option>`).join('')}</select><button class="btn b2" ${self?'disabled':''} onclick="setRole('${u.id}','${bn?(u.prevRole||'student'):'banned'}')">${bn?'<i class="fa fa-lock-open mr-1.5"></i>Mở khóa':'<i class="fa fa-lock mr-1.5"></i>Khóa'}</button></div>`}).join('')||'<p class="text-center text-slate-500 py-8">Không có tài khoản nào.</p>'}
-const usrBody=()=>`<div class="flex flex-wrap gap-2 mb-2"><input class="inp flex-1" style="min-width:160px" placeholder="Tìm tên, tài khoản, email..." value="${esc(cmQ)}" oninput="cmQ=this.value;$('#ul').innerHTML=usrRows()"><select class="inp" style="width:auto" onchange="cmC=this.value;$('#ul').innerHTML=usrRows()"><option value="">Tất cả lớp</option>${clsOpts(cmC)}</select></div><p class="text-xs text-slate-500 mb-1">Tài khoản bị khóa không thể đăng nhập hay làm bài.</p><div id="ul" class="max-h-[55vh] overflow-auto">${usrRows()}</div>`;
+ return L.map(u=>{const self=u.id==me.id,bn=u.role=='banned';return `<div class="flex flex-wrap items-center gap-3 py-3 border-b border-[color:var(--bd)] last:border-0"><img src="${av(u)}" class="w-9 h-9 rounded-full object-cover ${bn?'opacity-50':''}"><div class="flex-1 min-w-[150px]"><div class="font-medium">${esc(u.name)}${self?' <span class="badge">Bạn</span>':''}${bn?' <span class="badge warn">Bị khóa</span>':''}</div><div class="text-xs text-slate-500">${esc(u.email||u.username)} · ${esc(cn(u.classId))}</div></div><select class="inp" style="width:auto;padding:.4rem .7rem" ${self?'disabled':''} onchange="setRole('${u.id}',this.value)">${Object.entries(ROLE).map(([k,l])=>`<option value="${k}" ${u.role==k?'selected':''}>${l}</option>`).join('')}</select><button class="btn b2" ${self?'disabled':''} onclick="setRole('${u.id}','${bn?(u.prevRole||'student'):'banned'}')">${bn?'<i class="fa fa-lock-open mr-1.5"></i>Mở khóa':'<i class="fa fa-lock mr-1.5"></i>Khóa'}</button></div>`}).join('')||'<p class="text-center text-slate-500 py-8">Không có tài khoản.</p>'}
+const usrBody=()=>`<div class="flex flex-wrap gap-2 mb-2"><input class="inp flex-1" style="min-width:160px" placeholder="Tìm..." value="${esc(cmQ)}" oninput="cmQ=this.value;$('#ul').innerHTML=usrRows()"><select class="inp" style="width:auto" onchange="cmC=this.value;$('#ul').innerHTML=usrRows()"><option value="">Tất cả lớp</option>${clsOpts(cmC)}</select></div><p class="text-xs text-slate-500 mb-1">Tài khoản bị khóa không thể đăng nhập.</p><div id="ul" class="max-h-[55vh] overflow-auto">${usrRows()}</div>`;
 async function setRole(id,r){const u=S.users.find(x=>x.id==id);if(!u||u.id==me.id)return;if(r=='banned'&&u.role!='banned')u.prevRole=u.role;u.role=r;await save('users',u);toast(`${u.name}: ${ROLE[r]}`);$('#ul').innerHTML=usrRows()}
 function clsMgr(t){if(t)cmT=t;modal(`<h3 class="text-xl font-semibold mb-3">Quản lý lớp</h3><div class="seg mb-4"><button class="${cmT=='cls'?'on':''}" onclick="clsMgr('cls')">Lớp học</button><button class="${cmT=='usr'?'on':''}" onclick="clsMgr('usr')">Tài khoản (${S.users.length})</button></div>${cmT=='cls'?clsBody():usrBody()}`)}
-async function addC(){const n=$('#nc').value.trim();if(!n)return;await save('classes',{id:uid(),name:n});toast('Đã thêm lớp');clsMgr()}
-async function renC(id){const c=S.classes.find(x=>x.id==id),n=prompt('Tên lớp mới:',c.name);if(n?.trim()){c.name=n.trim();await save('classes',c);toast('Đã đổi tên lớp');clsMgr();render()}}
-async function delC(id){if(!confirm('Xóa lớp này?'))return;for(const u of S.users.filter(u=>u.classId==id)){u.classId='';await save('users',u)}await del('classes',id);toast('Đã xóa lớp');clsMgr();render()}
-// ===== Hồ sơ =====
+async function addC(){const n=$('#nc').value.trim();if(!n)return;await save('classes',{id:uid(),name:n});toast('Đã thêm');clsMgr()}
+async function renC(id){const c=S.classes.find(x=>x.id==id),n=prompt('Tên mới:',c.name);if(n?.trim()){c.name=n.trim();await save('classes',c);toast('Đã đổi');clsMgr();render()}}
+async function delC(id){if(!confirm('Xóa lớp?'))return;for(const u of S.users.filter(u=>u.classId==id)){u.classId='';await save('users',u)}await del('classes',id);toast('Đã xóa');clsMgr();render()}
 const AVS=['Felix','Aneka','Luna','Milo','Zoe','Leo','Mia','Max'];
-function profile(){newAv=null;modal(`<h3 class="text-xl font-bold mb-3">Hồ sơ cá nhân</h3><div class="flex items-center gap-3 mb-3 flex-wrap"><img id="pa" src="${av(me)}" class="w-20 h-20 rounded-full border-2 border-[color:var(--ac)] object-cover"><div><div class="flex flex-wrap gap-1">${AVS.map(s=>{const u=`https://api.dicebear.com/7.x/adventurer/svg?seed=${s}`;return `<img src="${u}" class="w-10 h-10 rounded-full cursor-pointer hover:ring-2 ring-[color:var(--ok)]" onclick="setAv('${u}')">`}).join('')}</div><label class="btn b2 inline-block mt-2 cursor-pointer text-sm"><i class="fa fa-upload"></i> Tải ảnh lên<input type="file" accept="image/*" hidden onchange="upAv(this)"></label></div></div><div class="grid gap-2"><input id="pn" class="inp" value="${esc(me.name)}" placeholder="Họ và tên"><input id="pb" class="inp" value="${esc(me.bio)}" placeholder="Châm ngôn học tập"><select id="pc" class="inp">${clsOpts(me.classId)}</select><input id="pp" type="password" class="inp" placeholder="Mật khẩu mới (bỏ trống nếu không đổi)"></div><button class="btn bg mt-3" onclick="saveP()">Lưu hồ sơ</button>`)}
+function profile(){newAv=null;modal(`<h3 class="text-xl font-bold mb-3">Hồ sơ</h3><div class="flex items-center gap-3 mb-3 flex-wrap"><img id="pa" src="${av(me)}" class="w-20 h-20 rounded-full border-2 border-[color:var(--ac)] object-cover"><div><div class="flex flex-wrap gap-1">${AVS.map(s=>{const u=`https://api.dicebear.com/7.x/adventurer/svg?seed=${s}`;return `<img src="${u}" class="w-10 h-10 rounded-full cursor-pointer hover:ring-2 ring-[color:var(--ok)]" onclick="setAv('${u}')">`}).join('')}</div><label class="btn b2 inline-block mt-2 cursor-pointer text-sm"><i class="fa fa-upload"></i> Tải ảnh<input type="file" accept="image/*" hidden onchange="upAv(this)"></label></div></div><div class="grid gap-2"><input id="pn" class="inp" value="${esc(me.name)}" placeholder="Họ và tên"><input id="pb" class="inp" value="${esc(me.bio)}" placeholder="Châm ngôn"><select id="pc" class="inp">${clsOpts(me.classId)}</select><input id="pp" type="password" class="inp" placeholder="Mật khẩu mới"></div><button class="btn bg mt-3" onclick="saveP()">Lưu</button>`)}
 const setAv=u=>{newAv=u;$('#pa').src=u};
 function upAv(el){const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=c.height=150;const s=Math.min(i.width,i.height);c.getContext('2d').drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,150,150);setAv(c.toDataURL('image/jpeg',.8))};i.src=r.result};r.readAsDataURL(f)}
-async function saveP(){const n=$('#pn').value.trim();if(!n)return toast('Họ tên không được trống','err');Object.assign(me,{name:n,bio:$('#pb').value.trim(),classId:$('#pc').value});
- if(newAv)me.avatar=newAv;if($('#pp').value)me.pass=$('#pp').value;await save('users',me);modal('');toast('Đã cập nhật hồ sơ');render()}
-// ===== Khởi động =====
-(async()=>{try{await load()}catch(e){useFB=false;toast('Không kết nối được Firebase, chuyển sang localStorage','err');await load()}
+async function saveP(){const n=$('#pn').value.trim();if(!n)return toast('Họ tên không trống','err');Object.assign(me,{name:n,bio:$('#pb').value.trim(),classId:$('#pc').value});
+ if(newAv)me.avatar=newAv;if($('#pp').value)me.pass=$('#pp').value;await save('users',me);modal('');toast('Đã cập nhật');render()}
+(async()=>{try{await load()}catch(e){useFB=false;toast('Không kết nối Firebase, dùng localStorage','err');await load()}
  await seed();me=S.users.find(u=>u.id==localStorage.getItem('qz_me'))||null;if(me?.role=='banned')me=null;render()})();
 </script></body></html>
