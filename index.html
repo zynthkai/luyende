@@ -90,6 +90,22 @@ span.hl{border-radius:3px;color:#0f172a;padding:0 1px}span.hl[data-c=y]{backgrou
 .dark .src-pill.video{background:#0c4a6e;color:#7dd3fc}
 .dark .src-pill.playlist{background:#4c1d95;color:#d8b4fe}
 .dark .src-pill.mix{background:#7c2d12;color:#fdba74}
+/* ===== Volume Control ===== */
+.vol-ctrl{display:flex;align-items:center;gap:.5rem;background:var(--sf);border:1px solid var(--bd);border-radius:.9rem;padding:.35rem .7rem;min-width:180px;transition:border-color .15s}
+.vol-ctrl:hover{border-color:var(--ac2)}
+.vol-btn{width:1.8rem;height:1.8rem;border-radius:.5rem;display:flex;align-items:center;justify-content:center;color:var(--tx2);transition:background-color .15s,color .15s;flex-shrink:0}
+.vol-btn:hover{background:var(--mu);color:var(--tx)}
+.vol-btn.muted{color:var(--er-t)}
+.vol-slider{-webkit-appearance:none;appearance:none;flex:1;height:4px;background:var(--mu);border-radius:999px;outline:none;cursor:pointer;min-width:0}
+.vol-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--ac);cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.vol-slider::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0 0 0 6px color-mix(in srgb,var(--ac) 22%,transparent)}
+.vol-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--ac);cursor:pointer;border:0}
+.vol-slider::-moz-range-thumb:hover{transform:scale(1.15)}
+.vol-val{font-size:.72rem;font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums;min-width:2.3rem;text-align:right}
+@media(max-width:480px){
+ .vol-ctrl{min-width:0;flex:1}
+ .vol-val{display:none}
+}
 </style><script>document.documentElement.classList.toggle('dark',(localStorage.getItem('qz_theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))=='dark')</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f66ff'/%3E%3Cpath fill='%23fff' d='M32 13 5 26l27 13 27-13z'/%3E%3Cpath fill='%23fff' fill-opacity='.85' d='M16 35v10c0 5 7 9 16 9s16-4 16-9V35L32 43z'/%3E%3Cpath stroke='%23fff' stroke-width='3' stroke-linecap='round' d='M56 27v14'/%3E%3C/svg%3E">
@@ -273,25 +289,28 @@ document.addEventListener('selectionchange',()=>{clearTimeout(hlT);hlT=setTimeou
 let RM=null,rtab='chat',ytPr,rxIdx=0;
 const rl={},rkey=id=>'qz_room_'+id,isHost=()=>RM?.doc?.host==me.id;
 
+// --- Volume state (local only) ---
+let myVol = (() => {
+  const v = parseFloat(localStorage.getItem('qz_vol'));
+  return isNaN(v) ? 100 : Math.max(0, Math.min(100, v));
+})();
+let isMuted = localStorage.getItem('qz_muted') === '1';
+
 // --- URL parser: video / playlist / Mix ---
 const ytParse=u=>{
   u=String(u||'').trim();
-  // Kiểm tra playlist (list=...)
   const pl=u.match(/[?&]list=([\w-]+)/);
   if(pl){
     const lid=pl[1];
-    // Mix: "RD..." — có thể kèm video gốc "v=..."
     if(/^RD/.test(lid)){
       const v=u.match(/[?&]v=([\w-]{11})/);
       return {type:'mix',id:lid,startVideo:v?v[1]:lid.slice(2)};
     }
     return {type:'playlist',id:lid};
   }
-  // Video
   const m=u.match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);
   if(m)return{type:'video',id:m[1]};
   if(/^[\w-]{11}$/.test(u))return{type:'video',id:u};
-  // Có thể là list ID thuần
   if(/^RD[\w-]+$/.test(u))return{type:'mix',id:u,startVideo:u.slice(2)};
   if(/^PL[\w-]+$/.test(u))return{type:'playlist',id:u};
   return null;
@@ -419,7 +438,6 @@ function roomUpd(d){
   if(d.ban?.[me.id]){RM.kicked=1;toast('Bạn đã bị cấm vào phòng này','err');return go('rooms')}
   const prev=RM.doc;RM.doc=d;
   if(!RM.mk&&$('#rvid')){RM.mk=1;ytMake()}
-  // Phát hiện đổi nguồn (video/playlist/mix)
   const srcChanged = RM.rdy && (d.vid !== RM.cvid || d.srcType !== RM.csrcType);
   if(srcChanged) loadSource(d);
   roomPanel();
@@ -441,7 +459,6 @@ function loadSource(d){
       RM.pl.loadVideoById(d.vid);
     }
   }catch(e){
-    // fallback: tạo lại player
     RM.mk=0;RM.rdy=0;ytMake();
   }
 }
@@ -474,6 +491,7 @@ function ytMake(){
       events:{
         onReady:()=>{
           RM.rdy=1;
+          applyVol();
           if(h){
             if(d.pb?.t>0)RM.pl.seekTo(d.pb.t,true);
             RM.pl.playVideo();
@@ -486,7 +504,6 @@ function ytMake(){
           if(e.data===1)pub(true,RM.pl.getCurrentTime());
           else if(e.data===2)pub(false,RM.pl.getCurrentTime());
           else if(e.data===0){
-            // Playlist/Mix đã tự next, queue chỉ áp dụng cho video đơn
             if(isMix||isPL)return;
             const q=RM.doc.queue||[];
             if(q.length){
@@ -498,6 +515,53 @@ function ytMake(){
       }
     });
   });
+}
+
+// ==== Áp dụng âm lượng local vào player ====
+function applyVol(){
+  if(!RM?.pl?.setVolume)return;
+  try{
+    RM.pl.setVolume(isMuted?0:myVol);
+    if(isMuted&&RM.pl.mute)RM.pl.mute();
+    else if(!isMuted&&RM.pl.unMute)RM.pl.unMute();
+  }catch(e){}
+}
+function volIcon(){
+  if(isMuted||myVol===0)return 'fa-volume-xmark';
+  if(myVol<33)return 'fa-volume-low';
+  if(myVol<66)return 'fa-volume';
+  return 'fa-volume-high';
+}
+function volLabel(){
+  if(isMuted)return 'Tắt tiếng';
+  return myVol+'%';
+}
+function setVol(v){
+  v=Math.max(0,Math.min(100,Math.round(v)));
+  myVol=v;
+  if(v>0&&isMuted){isMuted=false;localStorage.setItem('qz_muted','0')}
+  if(v===0&&!isMuted){isMuted=true;localStorage.setItem('qz_muted','1')}
+  localStorage.setItem('qz_vol',v);
+  applyVol();
+  const sl=$('#volSlider'),vv=$('#volVal'),btn=$('#volBtn');
+  if(sl)sl.value=v;
+  if(vv)vv.textContent=volLabel();
+  if(btn){
+    btn.innerHTML=`<i class="fa ${volIcon()}"></i>`;
+    btn.classList.toggle('muted',isMuted||v===0);
+  }
+}
+function toggleMute(){
+  isMuted=!isMuted;
+  localStorage.setItem('qz_muted',isMuted?'1':'0');
+  applyVol();
+  const vv=$('#volVal'),btn=$('#volBtn');
+  if(vv)vv.textContent=volLabel();
+  if(btn){
+    btn.innerHTML=`<i class="fa ${volIcon()}"></i>`;
+    btn.classList.toggle('muted',isMuted);
+  }
+  if(isMuted&&myVol===0)setVol(50);
 }
 function updateNowPlaying(){
   if(!RM?.pl?.getVideoData)return;
@@ -523,6 +587,7 @@ function applyPb(pb,force){
   const cur=pl.getCurrentTime?.()||0;
   if(!live&&Math.abs(cur-target)>1.5)pl.seekTo(target,true);
   pb.p?pl.playVideo():pl.pauseVideo();
+  applyVol();
   const sb=$('#syncbar');
   if(sb){sb.style.width='100%';setTimeout(()=>sb.style.width='0%',400)}
 }
@@ -546,7 +611,13 @@ function roomPanel(){
   $('#rtabs').innerHTML=[['chat','💬 Chat',(d.chat||[]).length],['mem','👥 Thành viên',mem.length],...(h?[['queue','📋 Hàng đợi',(d.queue||[]).length],['set','⚙️ Cài đặt','']]:[])]
     .map(([k,l,c])=>`<button class="${rtab==k?'on':''}" onclick="rtab='${k}';RM.sig='';roomPanel()">${l}${c!==''?` <span class="opacity-60">${c}</span>`:''}</button>`).join('');
   $('#rctl').innerHTML=`
-   <button class="btn b2" onclick="rMute()"><i class="fa fa-volume-high mr-1.5"></i>Âm thanh</button>
+   <div class="vol-ctrl">
+    <button id="volBtn" class="vol-btn ${isMuted||myVol===0?'muted':''}" onclick="toggleMute()" title="${isMuted?'Bật tiếng':'Tắt tiếng'}">
+     <i class="fa ${volIcon()}"></i>
+    </button>
+    <input id="volSlider" type="range" min="0" max="100" step="1" value="${isMuted?0:myVol}" class="vol-slider" oninput="setVol(this.value)" aria-label="Âm lượng">
+    <span id="volVal" class="vol-val">${volLabel()}</span>
+   </div>
    <button class="btn b2" onclick="rFs()"><i class="fa fa-expand mr-1.5"></i>Toàn màn hình</button>
    <div class="relative inline-block">
     <button class="btn b2" onclick="rQualityMenu(event)"><i class="fa fa-cog mr-1.5"></i>Chất lượng</button>
@@ -559,8 +630,8 @@ function roomPanel(){
    ${d.pwh?'<span class="badge self-center"><i class="fa fa-key mr-1"></i>Có mật khẩu</span>':''}
   `;
   $('#rnote').textContent=h
-    ?'Bạn là chủ phòng: phát, dừng, tua, đổi nguồn đều đồng bộ. Có thể chuyển quyền chủ phòng.'
-    :'Chủ phòng điều khiển video. Nếu bị lệch, bấm Đồng bộ. Bạn có thể chat, thả cảm xúc, xem thành viên.';
+    ?'Bạn là chủ phòng: phát, dừng, tua, đổi nguồn đều đồng bộ. Âm lượng và tốc độ chỉ ảnh hưởng máy bạn.'
+    :'Chủ phòng điều khiển video. Âm lượng và tốc độ chỉ ảnh hưởng máy bạn. Nếu lệch, bấm Đồng bộ.';
   const sig=rtab+(rtab=='chat'?(d.chat||[]).length+'_'+d.pin:rtab=='mem'?mem.map(x=>x[0]).join():rtab=='queue'?(d.queue||[]).join():[d.locked,d.pwh,d.vid,d.srcType].join());
   if(sig==RM.sig)return;RM.sig=sig;
 
@@ -681,7 +752,6 @@ const rKick=u=>{const n=RM.doc.m?.[u]?.n||'';if(confirm(`Mời ${n} ra khỏi ph
 const rBan=u=>{const n=RM.doc.m?.[u]?.n||'';if(confirm(`Cấm ${n} vĩnh viễn?`))rUpd(RM.id,{['ban.'+u]:true,['m.'+u]:{n,ts:0}})};
 function rTransfer(u){if(!u||!RM.doc.m?.[u])return;rUpd(RM.id,{host:u,hn:RM.doc.m[u].n});toast('Đã chuyển quyền chủ phòng')}
 function rPin(m){rUpd(RM.id,{pin:m})}
-function rMute(){const p=RM?.pl;if(p)p.isMuted()?p.unMute():p.mute()}
 function rFs(){const w=$('#rvwrap');if(w?.requestFullscreen)w.requestFullscreen()}
 function rQualityMenu(ev){
   ev.stopPropagation();
@@ -703,7 +773,7 @@ function roomLeave(){
   RM=null;
 }
 
-// ===== Phần thi (giữ nguyên) =====
+// ===== Phần thi =====
 async function start(id,opt){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản đã bị khóa','err');return logout()}const q=S.quizzes.find(x=>x.id==id);if(!opt&&q.mode=='multi')return modeSel(id);const o=opt||{pm:0,sq:!!q.shuffle,so:!!q.shuffle};let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(o.so)qs.forEach(x=>x.ord=sh(x.ord));if(o.sq)qs=sh(qs);
  HL={};ex={q,qs,pm:!!o.pm,rv:{},cur:0,ans:{},flag:{},tabs:0,t0:Date.now(),last:0};view='exam';render();clearInterval(tm);tm=setInterval(tick,1000)}
