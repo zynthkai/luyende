@@ -61,13 +61,16 @@ html:not(.dark) .tgl span:first-child,html.dark .tgl span:last-child{background:
 #hlbar{position:fixed;z-index:60;display:none;align-items:center;gap:8px;padding:7px 10px;background:var(--sf);border:1px solid var(--bd);border-radius:999px;box-shadow:0 8px 24px rgb(16 28 59/.22)}
 #hlbar button{width:24px;height:24px;border-radius:999px;border:1px solid rgb(0 0 0/.18)}#hlbar .er{border:0;width:auto;color:var(--tx2);padding:0 2px}
 span.hl{border-radius:3px;color:#0f172a;padding:0 1px}span.hl[data-c=y]{background:#fde68a}span.hl[data-c=g]{background:#bbf7d0}span.hl[data-c=p]{background:#fbcfe8}
+#rform{display:none}#rvid{width:100%;height:100%}
+.rmsg{max-width:85%;padding:.4rem .8rem;border-radius:1rem;font-size:.875rem;word-break:break-word}
+.rmem{display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--bd)}.rmem:last-child{border-bottom:0}
 </style><script>document.documentElement.classList.toggle('dark',(localStorage.getItem('qz_theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))=='dark')</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f66ff'/%3E%3Cpath fill='%23fff' d='M32 13 5 26l27 13 27-13z'/%3E%3Cpath fill='%23fff' fill-opacity='.85' d='M16 35v10c0 5 7 9 16 9s16-4 16-9V35L32 43z'/%3E%3Cpath stroke='%23fff' stroke-width='3' stroke-linecap='round' d='M56 27v14'/%3E%3C/svg%3E">
 </head>
 <body><div id="app"><div class="flex items-center justify-center min-h-screen text-slate-500"><i class="fa fa-circle-notch fa-spin mr-2"></i> Đang tải dữ liệu...</div></div><div id="modal"></div><div id="toast" class="fixed top-3 right-3 z-50 space-y-2"></div>
 <script>
-// ===== Điền cấu hình Firebase vào đây để dùng Firestore. Để trống = tự dùng localStorage =====
+// ===== Cấu hình Firebase =====
 const firebaseConfig = {
   apiKey: "AIzaSyBlBHZziqx9hduJOeYB1BoZPOnHpHpBdNw",
   authDomain: "thewebsitefor12a1.firebaseapp.com",
@@ -90,7 +93,6 @@ async function del(c,id){S[c]=S[c].filter(x=>x.id!=id);useFB?await fdb.collectio
 // ===== Helpers =====
 const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-// Hỗ trợ in đậm **...**, gạch chân _..._ và tô sáng chỗ trống (số) ___ trong đoạn văn
 const rtf=(s,hlNum)=>{
   let out=esc(s).replace(/(^|[\s(])_([^_\n]+)_(?=[\s.,;:!?)"]|$)/g,'$1<u class="decoration-2 underline-offset-4 font-semibold text-teal-800">$2</u>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
   if(hlNum)out=out.replace(new RegExp(`\\(${hlNum}\\)\\s*_*`,'g'),m=>`<mark class="bg-amber-300 text-[color:var(--tx)] font-extrabold px-1.5 py-0.5 rounded shadow-sm">${m}</mark>`);
@@ -108,7 +110,7 @@ function toast(m,t='ok'){const d=document.createElement('div');d.className='fade
 const modal=(h,k)=>{$('#modal').innerHTML=h?`<div class="fixed inset-0 bg-slate-900/40 z-40 overflow-auto p-3 flex items-start justify-center"><div class="card w-full max-w-2xl my-6 relative">${k?'':`<button class="absolute right-4 top-2 text-2xl" onclick="modal('')">×</button>`}${h}</div></div>`:'';math()};
 let me=null,view='dash',ex=null,tm,curR,newAv,authMode='login',lb={q:'all',c:''},editId=null;
 
-// ===== Parser đề thi chuẩn cấu trúc mới (Hỗ trợ [ĐOẠN VĂN], Cloze Test, Sắp xếp, Gạch chân) =====
+// ===== Parser =====
 function parse(t,keepL){
   const qs=[];let cq=null,cg='',ig=false,md='text',m;
   t.replace(/\r/g,'').split('\n').forEach((ln,li)=>{
@@ -163,7 +165,6 @@ D. would have felt
 *GT: Dùng "go to bed" không có mạo từ "the".`;
 
 async function seed(){if(S.users.length)return;await save('classes',{id:'c1',name:'12A1'});
-
  await save('quizzes',{id:'q1',title:'Đề mẫu - Tiếng Anh 2026',dur:10,classId:'',mode:'multi',shuffle:false,anti:true,show:true,qs:parse(SAMPLE)})}
 // ===== Auth =====
 const GBTN=`<button type="button" onclick="gLogin()" class="btn b2 w-full flex items-center justify-center gap-2.5" style="padding:.6rem"><svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Đăng nhập với Google</button><div class="flex items-center gap-2 text-xs text-slate-400"><hr class="flex-1">hoặc dùng tài khoản lớp<hr class="flex-1"></div>`;
@@ -189,8 +190,8 @@ async function finG(u){u=u||pend;if(!u.classId&&$('#gc'))u.classId=$('#gc').valu
 const canMake=()=>!!me&&(me.role=='admin'||me.role=='teacher');
 const canEdit=q=>!!q&&canMake()&&(me.role=='admin'||q.ownerId==me.id);
 const canSee=q=>me.role=='admin'||canEdit(q)||!q.classId||q.classId==me.classId;
-const NAV=[['dash','fa-chart-pie','Tổng quan'],['home','fa-book-open','Đề thi'],['lb','fa-trophy','Xếp hạng']];
-const VT={dash:['dash','Tổng quan'],home:['home','Đề thi'],lb:['lb','Bảng xếp hạng'],history:['home','Lịch sử làm bài'],res:['home','Kết quả'],rev:['home','Xem lại bài']};
+const NAV=[['dash','fa-chart-pie','Tổng quan'],['home','fa-book-open','Đề thi'],['lb','fa-trophy','Xếp hạng'],['rooms','fa-tv','Xem chung']];
+const VT={rooms:['rooms','Xem chung YouTube'],room:['rooms','Phòng xem chung'],dash:['dash','Tổng quan'],home:['home','Đề thi'],lb:['lb','Bảng xếp hạng'],history:['home','Lịch sử làm bài'],res:['home','Kết quả'],rev:['home','Xem lại bài']};
 const shellH=()=>`<div id="shell" class="flex min-h-screen ${localStorage.getItem('qz_sb')=='1'?'col':''}"><div id="bk" class="fixed inset-0 z-30 bg-black/40" onclick="sbToggle()"></div>
 <aside class="sb"><div class="flex items-center gap-2.5 px-1.5 pb-5"><div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm" style="background:var(--ac);color:#fff"><i class="fa fa-graduation-cap"></i></div><b class="lbl text-[17px] tracking-tight">dz1stVN</b></div>
 <nav class="flex-1 space-y-1">${NAV.map(([v,i,l])=>`<button class="nv" data-v="${v}" onclick="go('${v}')"><i class="fa ${i}"></i><span class="lbl">${l}</span></button>`).join('')}${canMake()?`<p class="lbl text-[11px] font-bold uppercase tracking-wider text-slate-400 px-3 pt-4 pb-1">${me.role=='admin'?'Quản trị':'Giáo viên'}</p><button class="nv" onclick="quizForm()"><i class="fa fa-plus"></i><span class="lbl">Tạo đề mới</span></button>${me.role=='admin'?`<button class="nv" onclick="clsMgr()"><i class="fa fa-users"></i><span class="lbl">Quản lý lớp</span></button>`:''}`:''}</nav>
@@ -200,8 +201,8 @@ let shellKey='',ch=[];
 function render(){const app=$('#app'),y=window.scrollY;
  if(!me||view=='exam'){shellKey='';app.innerHTML=!me?authH():examH()}
  else{const k=me.id+me.name+me.avatar+me.role;if(k!=shellKey){app.innerHTML=shellH();shellKey=k}
-  $('#main').innerHTML=({dash:dashH,home:homeH,lb:lbH,history:histH,res:resH,rev:revH}[view])();navState()}
- math();charts();if(view=='exam'){const pl=$('#pal'),c=$('#pal .ring-2');if(pl&&c)pl.scrollLeft=c.offsetLeft-pl.clientWidth/2+c.clientWidth/2}tIcon();requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}))}
+  $('#main').innerHTML=({dash:dashH,home:homeH,lb:lbH,history:histH,res:resH,rev:revH,rooms:roomsH,room:roomH}[view])();navState()}
+ math();charts();if(view=='room')roomMount();else if(RM)roomLeave();if(view=='exam'){const pl=$('#pal'),c=$('#pal .ring-2');if(pl&&c)pl.scrollLeft=c.offsetLeft-pl.clientWidth/2+c.clientWidth/2}tIcon();requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}))}
 function navState(){const[n,t]=VT[view];document.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v==n));$('#pt').textContent=t;$('#shell').classList.remove('opn')}
 function sbToggle(){const e=$('#shell');if(matchMedia('(max-width:767px)').matches)e.classList.toggle('opn');else localStorage.setItem('qz_sb',e.classList.toggle('col')?'1':'0')}
 function theme(){const d=document.documentElement.classList.toggle('dark');localStorage.setItem('qz_theme',d?'dark':'light');render()}
@@ -215,7 +216,7 @@ function dashH(){const mine=S.results.filter(r=>r.userId==me.id&&!r.pm),mq=S.qui
  const avg=mine.length?(mine.reduce((a,r)=>a+r.base,0)/mine.length).toFixed(2):'—',ok=mine.reduce((a,r)=>a+r.ok,0),tot=mine.reduce((a,r)=>a+r.total,0),pct=tot?Math.round(ok/tot*100):0,recent=[...mine].sort((a,b)=>b.ts-a.ts).slice(0,5),first=me.name.trim().split(/\s+/).at(-1);
  const li=h=>`<div class="flex items-center gap-3 py-3 border-b border-[color:var(--bd)] last:border-0">${h}</div>`,dot=(c,t)=>`<div class="flex items-center gap-2.5 text-slate-500 mt-2.5"><span class="w-3 h-3 rounded-full shrink-0" style="background:var(${c})"></span>${t}</div>`;
  return `<p class="eyebrow mb-3">Tổng quan · Lớp ${esc(cn(me.classId))}</p><h1 class="hero">Xin chào, ${esc(first)}.<br><em>Tiếp tục ôn luyện.</em></h1><p class="text-slate-500 mt-3 mb-4 max-w-xl">${me.bio?esc(me.bio)+'. ':''}Theo dõi điểm số và tiến bộ của bạn qua từng lượt làm bài.${me.role=='admin'?` Hệ thống: ${S.users.filter(u=>u.role=='student').length} học sinh · ${S.classes.length} lớp · ${S.quizzes.length} đề · ${S.results.length} lượt.`:''}</p>
- <div class="flex flex-wrap gap-2.5 mb-5"><span class="chip"><i class="fa fa-book-open"></i>${mq.length} đề được giao</span><span class="chip"><i class="fa fa-check"></i>${done.size} đã hoàn thành</span><span class="chip"><i class="fa fa-star"></i>Điểm TB ${avg}</span></div>
+ <div class="flex flex-wrap gap-2.5 mb-5"><span class="chip"><i class="fa fa-book-open"></i>${mq.length} đề được giao</span><span class="chip"><i class="fa fa-check"></i>${done.size} đã hoàn thành</span><span class="chip"><i class="fa fa-star"></i>Điểm TB ${avg}</span><button class="chip" onclick="go('rooms')"><i class="fa fa-tv"></i>Xem YouTube chung</button></div>
  <div class="card mb-4 flex items-center justify-between gap-4" style="padding:1.6rem"><div><h3 class="text-lg font-bold tracking-tight mb-1">Kết quả tổng hợp</h3>${dot('--ac',`${ok} câu đúng`)}${dot('--er',`${tot-ok} câu sai`)}${dot('--ok',`${todo.length} đề chưa làm`)}</div><div class="text-center shrink-0"><div class="relative w-32 h-32 mx-auto">${tot?'<canvas id="c2"></canvas>':'<div class="w-full h-full rounded-full" style="border:14px solid var(--mu)"></div>'}<div class="absolute inset-0 flex items-center justify-center text-3xl font-extrabold tracking-tight num">${tot?pct+'%':'—'}</div></div><div class="eyebrow mt-2" style="color:var(--tx2);letter-spacing:.1em">Tỉ lệ đúng</div></div></div>
  <div class="card mb-4">${sec('Điểm theo thời gian',`${mine.length} lượt`)}${mine.length?'<div class="h-52"><canvas id="c1"></canvas></div>':emp('fa-chart-line','Chưa có dữ liệu. Hoàn thành một bài để xem biểu đồ.')}</div>
  <div class="grid lg:grid-cols-2 gap-4"><div class="card">${sec('Đề chưa làm',`${todo.length}`)}${todo.slice(0,5).map(q=>li(`<div class="flex-1 min-w-0"><div class="font-semibold truncate">${esc(q.title)}</div><div class="text-xs text-slate-500">${q.qs.length} câu · ${q.dur} phút</div></div><button class="btn" onclick="start('${q.id}')">Làm bài</button>`)).join('')||emp('fa-check','Bạn đã hoàn thành tất cả đề được giao.')}</div>
@@ -241,6 +242,65 @@ function hlDo(c){const x=hlSel();if(!x)return;const{r,c:ct}=x,kx=n=>(n.nodeType=
  else{const a=kx(r.startContainer),z=kx(r.endContainer);if(a)r.setStartBefore(a);if(z)r.setEndAfter(z);try{const sp=document.createElement('span');sp.className='hl';sp.dataset.c=c;sp.append(r.extractContents());r.insertNode(sp)}catch(e){return}}
  ct.normalize();HL[ct.dataset.hl]=ct.innerHTML;getSelection().removeAllRanges();$('#hlbar').style.display='none'}
 document.addEventListener('selectionchange',()=>{clearTimeout(hlT);hlT=setTimeout(hlBar,120)});
+
+// ===== Phòng xem YouTube chung =====
+let RM=null,rtab='chat',ytPr;
+const rl={},rkey=id=>'qz_room_'+id,isHost=()=>RM?.doc?.host==me.id;
+const ytId=u=>{u=String(u||'').trim();const m=u.match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);return m?m[1]:/^[\w-]{11}$/.test(u)?u:''};
+const ytLoad=()=>ytPr??=new Promise(r=>{if(window.YT?.Player)return r();window.onYouTubeIframeAPIReady=r;const e=document.createElement('script');e.src='https://www.youtube.com/iframe_api';document.head.append(e)});
+async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of t)h=(h*33^c.charCodeAt(0))>>>0;return'x'+h}}
+const sp=(o,k,v)=>{const a=k.split('.');let c=o;a.slice(0,-1).forEach(x=>c=c[x]??={});c[a.at(-1)]=v};
+const rGet=async id=>useFB?(await fdb.collection('rooms').doc(id).get()).data()||null:JSON.parse(localStorage.getItem(rkey(id))||'null');
+async function rUpd(id,patch,app){if(useFB){const d={...patch};for(const k in app||{})d[k]=firebase.firestore.FieldValue.arrayUnion(app[k]);return fdb.collection('rooms').doc(id).update(d)}
+ const o=JSON.parse(localStorage.getItem(rkey(id))||'null');if(!o)return;for(const k in patch)sp(o,k,patch[k]);for(const k in app||{}){(o[k]??=[]).push(app[k]);if(o[k].length>200)o[k]=o[k].slice(-200)}localStorage.setItem(rkey(id),JSON.stringify(o));rl[id]?.(o)}
+function rListen(id,cb){if(useFB)return fdb.collection('rooms').doc(id).onSnapshot(x=>cb(x.exists?x.data():null),()=>cb(null));rl[id]=cb;const h=e=>{if(e.key==rkey(id))cb(e.newValue?JSON.parse(e.newValue):null)};addEventListener('storage',h);cb(JSON.parse(localStorage.getItem(rkey(id))||'null'));return()=>{delete rl[id];removeEventListener('storage',h)}}
+function saveMy(id,name,host){const k='qz_myrooms_'+me.id,a=JSON.parse(localStorage.getItem(k)||'[]').filter(r=>r.id!=id);a.unshift({id,name,host});localStorage.setItem(k,JSON.stringify(a.slice(0,8)))}
+async function rCreate(){const vid=ytId($('#ru').value);if(!vid)return toast('Link YouTube không hợp lệ','err');const pw=$('#rp').value,id=Math.random().toString(36).slice(2,8).toUpperCase(),name=$('#rn').value.trim()||('Phòng của '+me.name);
+ const d={id,name,vid,host:me.id,hn:me.name,locked:false,pwh:pw?await sha(pw):'',pb:{p:false,t:0,rev:1,ts:Date.now()},m:{},k:{},chat:[],ts:Date.now()};
+ useFB?await fdb.collection('rooms').doc(id).set(d):localStorage.setItem(rkey(id),JSON.stringify(d));saveMy(id,name,true);RM={id};view='room';render()}
+async function rJoin(id,pw){id=String(id||'').trim().toUpperCase();if(!id)return toast('Nhập mã phòng','err');const d=await rGet(id);if(!d)return toast('Không tìm thấy phòng','err');
+ if(d.k?.[me.id])return toast('Bạn đã bị mời ra khỏi phòng này','err');
+ if(d.host!=me.id){if(d.locked)return toast('Phòng đã khóa, không nhận thêm người','err');if(d.pwh&&await sha(pw||'')!=d.pwh)return toast('Sai mật khẩu phòng','err')}
+ saveMy(id,d.name,d.host==me.id);RM={id};view='room';render()}
+function roomsH(){const my=JSON.parse(localStorage.getItem('qz_myrooms_'+me.id)||'[]');
+ return `<p class="eyebrow mb-1">Xem chung</p><h1 class="hero mb-2">Xem YouTube cùng bạn bè</h1><p class="text-slate-500 mb-5 max-w-xl">Tạo phòng, chia sẻ mã và xem cùng một video đồng bộ. Trò chuyện bằng tin nhắn, không dùng mic.</p>
+ <div class="grid md:grid-cols-2 gap-4"><div class="card space-y-3"><h3 class="font-semibold">Tạo phòng mới</h3><input id="rn" class="inp" placeholder="Tên phòng"><input id="ru" class="inp" placeholder="Dán link YouTube (video hoặc live)"><input id="rp" type="password" class="inp" placeholder="Mật khẩu phòng (không bắt buộc)"><button class="btn w-full" onclick="rCreate()"><i class="fa fa-plus mr-1.5"></i>Tạo phòng</button></div>
+ <div class="card space-y-3"><h3 class="font-semibold">Vào phòng bằng mã</h3><input id="rc" class="inp uppercase" placeholder="Mã phòng (6 ký tự)" maxlength="6"><input id="rj" type="password" class="inp" placeholder="Mật khẩu (nếu có)"><button class="btn w-full" onclick="rJoin($('#rc').value,$('#rj').value)">Vào phòng</button></div></div>
+ ${my.length?`<div class="card mt-4"><h3 class="font-semibold mb-2">Phòng gần đây</h3>${my.map(r=>`<div class="flex items-center gap-3 py-2.5 border-b border-[color:var(--bd)] last:border-0"><div class="flex-1 min-w-0"><div class="font-medium truncate">${esc(r.name)}</div><div class="text-xs text-slate-500">Mã ${esc(r.id)}${r.host?' · bạn là chủ phòng':''}</div></div><button class="btn b2" onclick="${r.host?`rJoin('${r.id}','')`:`$('#rc').value='${r.id}';$('#rj').focus()`}">Vào lại</button></div>`).join('')}</div>`:''}`}
+function roomH(){const d=RM?.doc;return `<div class="flex items-center gap-3 mb-3 flex-wrap"><button class="btn b2" onclick="go('rooms')"><i class="fa fa-arrow-left mr-1.5"></i>Rời phòng</button><div class="min-w-0"><div id="rnm" class="font-semibold truncate">${esc(d?.name||'Đang vào phòng...')}</div><div class="text-xs text-slate-500">Mã phòng <b class="num tracking-widest">${esc(RM?.id||'')}</b> <button class="text-[color:var(--ac-t)] ml-1" onclick="navigator.clipboard?.writeText('${RM?.id}');toast('Đã sao chép mã phòng')">Sao chép</button></div></div></div>
+ <div class="grid lg:grid-cols-[1fr_340px] gap-4 items-start"><div><div id="rvwrap" class="relative aspect-video rounded-2xl overflow-hidden bg-black"><div id="rvid"></div><div id="rov" class="absolute inset-0"></div></div><div id="rctl" class="flex flex-wrap gap-2 mt-3"></div><p id="rnote" class="text-xs text-slate-500 mt-2"></p></div>
+ <div class="card flex flex-col" style="padding:0"><div class="seg m-3 mb-0" id="rtabs"></div><div id="rbody" class="p-3 overflow-auto" style="height:min(55vh,22rem)"></div><form id="rform" onsubmit="return rSend(event)" class="p-3 border-t border-[color:var(--bd)] gap-2"><input id="rin" class="inp" maxlength="300" placeholder="Nhắn tin..." autocomplete="off"><button class="btn" aria-label="Gửi"><i class="fa fa-paper-plane"></i></button></form></div></div>`}
+function roomMount(){if(!RM)return;if(!RM.un){RM.un=rListen(RM.id,roomUpd);RM.iv=setInterval(roomTick,1000)}RM.pl=null;RM.rdy=0;RM.mk=0;RM.sig='';if(RM.doc&&$('#rvid')){RM.mk=1;ytMake()}roomPanel()}
+function roomUpd(d){if(!RM)return;if(!d){RM.dead=1;toast('Phòng không còn tồn tại','err');return go('rooms')}
+ if(d.k?.[me.id]){RM.kicked=1;toast('Bạn đã bị mời ra khỏi phòng','err');return go('rooms')}
+ RM.doc=d;if(!RM.mk&&$('#rvid')){RM.mk=1;ytMake()}
+ if(RM.rdy&&d.vid!=RM.cvid){RM.cvid=d.vid;RM.pl.loadVideoById(d.vid)}
+ roomPanel();applyPb(d.pb)}
+function ytMake(){const d=RM.doc,h=isHost();RM.cvid=d.vid;ytLoad().then(()=>{if(!RM||!$('#rvid'))return;RM.pl=new YT.Player('rvid',{videoId:d.vid,width:'100%',height:'100%',playerVars:{playsinline:1,rel:0,modestbranding:1,controls:h?1:0,disablekb:h?0:1},events:{onReady:()=>{RM.rdy=1;if(h){const t=RM.doc.pb?.t;if(t>0)RM.pl.seekTo(t,true)}else applyPb(RM.doc.pb,1)},onStateChange:e=>{if(!isHost()||!RM.rdy)return;if(e.data==1)pub(true,RM.pl.getCurrentTime());else if(e.data==2)pub(false,RM.pl.getCurrentTime())}}})})}
+function pub(p,t){RM.last={p,t,at:Date.now()};rUpd(RM.id,{pb:{p,t,rev:(RM.doc?.pb?.rev||0)+1,ts:Date.now()}}).catch(()=>{})}
+function applyPb(pb,force){if(!RM?.rdy||isHost()||!pb)return;const pl=RM.pl;if(!force&&RM.rev==pb.rev)return;RM.rev=pb.rev;const live=pl.getVideoData?.().isLive,t=pb.t+(pb.p?.5:0);
+ if(!live&&Math.abs((pl.getCurrentTime?.()||0)-t)>1.5)pl.seekTo(t,true);pb.p?pl.playVideo():pl.pauseVideo()}
+function roomTick(){if(!RM)return;RM.c=(RM.c||0)+1;if(RM.c%20==1)rUpd(RM.id,{['m.'+me.id]:{n:me.name,ts:Date.now()}}).catch(()=>{});
+ if(!RM.rdy||!isHost())return;const cur=RM.pl.getCurrentTime(),st=RM.pl.getPlayerState(),L=RM.last;
+ if(L&&Math.abs(cur-(L.p?L.t+(Date.now()-L.at)/1000:L.t))>2.5)return pub(st==1,cur);if(RM.c%5==0)pub(st==1,cur)}
+function roomLeave(){if(!RM)return;clearInterval(RM.iv);RM.un?.();try{RM.pl?.destroy()}catch(e){}if(RM.doc&&!RM.dead&&!RM.kicked)rUpd(RM.id,{['m.'+me.id]:{n:me.name,ts:0}}).catch(()=>{});RM=null}
+function roomPanel(){const d=RM?.doc,b=$('#rbody');if(!d||!b)return;const h=isHost(),now=Date.now(),mem=Object.entries(d.m||{}).filter(([u,v])=>u==d.host||now-v.ts<50000).sort((x,y)=>(y[0]==d.host)-(x[0]==d.host));if(rtab=='set'&&!h)rtab='chat';
+ $('#rnm').textContent=d.name;$('#rov').classList.toggle('hidden',h);$('#rform').style.display=rtab=='chat'?'flex':'none';
+ $('#rtabs').innerHTML=[['chat','Trò chuyện',(d.chat||[]).length],['mem','Thành viên',mem.length],...(h?[['set','Cài đặt','']]:[])].map(([k,l,c])=>`<button class="${rtab==k?'on':''}" onclick="rtab='${k}';RM.sig='';roomPanel()">${l}${c!==''?` <span class="opacity-60">${c}</span>`:''}</button>`).join('');
+ $('#rctl').innerHTML=`<button class="btn b2" onclick="rMute()"><i class="fa fa-volume-high mr-1.5"></i>Âm thanh</button><button class="btn b2" onclick="rFs()"><i class="fa fa-expand mr-1.5"></i>Toàn màn hình</button>${h?'':`<button class="btn b2" onclick="applyPb(RM.doc.pb,1)"><i class="fa fa-rotate mr-1.5"></i>Đồng bộ lại</button>`}${d.locked?'<span class="badge warn self-center"><i class="fa fa-lock mr-1"></i>Phòng đã khóa</span>':''}${d.pwh?'<span class="badge self-center"><i class="fa fa-key mr-1"></i>Có mật khẩu</span>':''}`;
+ $('#rnote').textContent=h?'Bạn là chủ phòng: phát, dừng, tua video sẽ đồng bộ cho mọi người.':'Chủ phòng điều khiển video. Nếu bị lệch hoặc không tự chạy, bấm Đồng bộ lại.';
+ const sig=rtab+(rtab=='chat'?(d.chat||[]).length:rtab=='mem'?mem.map(x=>x[0]).join():[d.locked,d.pwh,d.vid].join());if(sig==RM.sig)return;RM.sig=sig;
+ if(rtab=='chat'){const near=b.scrollHeight-b.scrollTop-b.clientHeight<60;b.innerHTML=(d.chat||[]).slice(-100).map(m=>`<div class="mb-2.5 ${m.u==me.id?'text-right':''}"><div class="text-[11px] text-slate-500">${esc(m.n)}${m.u==d.host?' · chủ phòng':''}</div><div class="rmsg inline-block ${m.u==me.id?'ml-auto':''}" style="background:${m.u==me.id?'var(--ac-s)':'var(--mu)'}">${esc(m.t)}</div></div>`).join('')||'<p class="text-center text-sm text-slate-500 py-8">Chưa có tin nhắn. Hãy chào mọi người!</p>';if(near||!b.dataset.s){b.scrollTop=b.scrollHeight;b.dataset.s=1}}
+ else if(rtab=='mem')b.innerHTML=`<p class="text-xs text-slate-500 mb-1">Đang tham gia (${mem.length})</p>`+mem.map(([u,v])=>`<div class="rmem"><img src="${ini(v.n)}" class="w-9 h-9 rounded-full"><div class="flex-1 min-w-0 font-medium truncate">${esc(v.n)}${u==me.id?' <span class="badge">Bạn</span>':''}${u==d.host?' <span class="badge">Chủ phòng</span>':''}</div>${h&&u!=me.id?`<button class="btn b2" onclick="rKick('${u}')">Mời ra</button>`:''}</div>`).join('');
+ else b.innerHTML=`<div class="space-y-5"><div><div class="font-medium">Khóa phòng</div><p class="text-xs text-slate-500 mb-2">Phòng khóa không nhận thêm người mới. Người đang ở trong phòng vẫn xem bình thường.</p><button class="btn ${d.locked?'br':'b2'}" onclick="rLock()"><i class="fa fa-${d.locked?'lock':'lock-open'} mr-1.5"></i>${d.locked?'Đang khóa, bấm để mở':'Khóa phòng'}</button></div><div><div class="font-medium">Mật khẩu phòng</div><div class="flex gap-2 mt-1"><input id="rnp" type="password" class="inp" placeholder="${d.pwh?'Đổi mật khẩu mới':'Đặt mật khẩu'}"><button class="btn" onclick="rPw()">Lưu</button></div>${d.pwh?'<button class="text-sm mt-1 text-[color:var(--er-t)]" onclick="rPw(1)">Gỡ mật khẩu</button>':''}</div><div><div class="font-medium">Đổi video</div><div class="flex gap-2 mt-1"><input id="rnu" class="inp" placeholder="Link YouTube mới"><button class="btn" onclick="rVid()">Đổi</button></div></div><button class="btn br w-full" onclick="rClose()">Đóng phòng</button></div>`}
+function rSend(e){e.preventDefault();const i=$('#rin'),t=i.value.trim().slice(0,300);if(!t||!RM||Date.now()-(RM.ls||0)<700)return false;RM.ls=Date.now();i.value='';rUpd(RM.id,{},{chat:{u:me.id,n:me.name,t,ts:Date.now()}}).catch(()=>toast('Không gửi được tin nhắn','err'));return false}
+const rLock=()=>rUpd(RM.id,{locked:!RM.doc.locked});
+async function rPw(clear){const v=clear?'':$('#rnp').value;await rUpd(RM.id,{pwh:v?await sha(v):''});toast(v?'Đã đặt mật khẩu':'Đã gỡ mật khẩu')}
+function rVid(){const v=ytId($('#rnu').value);if(!v)return toast('Link YouTube không hợp lệ','err');rUpd(RM.id,{vid:v,pb:{p:false,t:0,rev:(RM.doc.pb?.rev||0)+1,ts:Date.now()}});$('#rnu').value=''}
+async function rClose(){if(!confirm('Đóng phòng? Mọi người sẽ bị đưa ra khỏi phòng.'))return;const id=RM.id;if(useFB)await fdb.collection('rooms').doc(id).delete();else{localStorage.removeItem(rkey(id));rl[id]?.(null)}}
+const rKick=u=>{const n=RM.doc.m?.[u]?.n||'';if(confirm(`Mời ${n} ra khỏi phòng?`))rUpd(RM.id,{['k.'+u]:true,['m.'+u]:{n,ts:0}})};
+const rMute=()=>{const p=RM?.pl;if(p)p.isMuted()?p.unMute():p.mute()},rFs=()=>$('#rvwrap')?.requestFullscreen?.();
+
 // ===== Làm bài =====
 async function start(id,opt){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản của bạn đã bị khóa, không thể làm bài.','err');return logout()}const q=S.quizzes.find(x=>x.id==id);if(!opt&&q.mode=='multi')return modeSel(id);const o=opt||{pm:0,sq:!!q.shuffle,so:!!q.shuffle};let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(o.so)qs.forEach(x=>x.ord=sh(x.ord));if(o.sq)qs=sh(qs);
@@ -280,7 +340,6 @@ let rvf='all';
 const dtf=ts=>ts?new Date(ts).toLocaleString('vi-VN',{dateStyle:'medium',timeStyle:'short'}):'';
 function review(id,f){curR=S.results.find(r=>r.id==id);rvf=f||'all';view='rev';window.scrollTo(0,0);render()}
 const goQ=i=>{if(!$('#rq'+i)){rvf='all';render()}$('#rq'+i)?.scrollIntoView({block:'start'})};
-// Phân loại từng câu: ok = đúng hoàn toàn; bad = sai (kể cả đúng một phần); blank = chưa trả lời
 function qres(x,a){
  if(x.type=='mc'){const got=a!==undefined&&a!==null;return{s:x.ans&&a==='ABCD'.indexOf(x.ans)?'ok':got?'bad':'blank'}}
  if(x.type=='tf'){const k=x.ans.filter((v,j)=>a?.[j]===v).length,got=Array.isArray(a)&&a.some(v=>v!=null);return k==x.ans.length?{s:'ok'}:{s:got?'bad':'blank',part:got?`${k}/${x.ans.length} ý đúng`:''}}
@@ -300,7 +359,7 @@ function revH(){const r=curR,q=quizOf(r);if(!q||!canRev(r))return '<p>Đề này
  <div class="card mb-4"><div class="h-2 rounded-full bg-[color:var(--er-s)] overflow-hidden mb-3"><div class="h-full bg-[color:var(--ok-b)]" style="width:${nOk/st.length*100}%"></div></div><div class="flex flex-wrap gap-2 mb-3">${tab('all','Tất cả',st.length,'bg-[color:var(--ac)] border-[color:var(--ac)] text-white')}${tab('ok','Đúng',nOk,'bg-[color:var(--ok-s)] border-[color:var(--ok-b)] text-[color:var(--ok-t)]')}${tab('bad','Sai',nBad,'bg-[color:var(--er-s)] border-[color:var(--er-b)] text-[color:var(--er-t)]')}</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
  ${cards||`<div class="card text-center py-10 text-slate-500">${rvf=='bad'?'Bạn không sai câu nào.':'Không có câu nào.'}</div>`}
  <div class="flex gap-2 flex-wrap"><button class="btn b2" onclick="hist('${r.quizId}')">Lịch sử đề này</button><button class="btn b2" onclick="go('home')">Về trang chủ</button></div>`}
-// ===== Lịch sử làm bài (theo từng đề) =====
+// ===== Lịch sử =====
 let hq='';
 function hist(id){hq=id;view='history';window.scrollTo(0,0);render()}
 function histH(){
@@ -341,7 +400,6 @@ function histH(){
 // ===== Xếp hạng & CSV =====
 const lbRows=(qid=lb.q,c=lb.c)=>{const b={};S.results.filter(r=>r.quizId==qid&&!r.pm&&(!c||r.classId==c)).forEach(r=>{if(!b[r.userId]||r.rank>b[r.userId].rank)b[r.userId]=r});return Object.values(b).sort((a,z)=>z.rank-a.rank||a.time-z.time)};
 const lbItem=r=>({userId:r.userId,name:r.name,classId:r.classId,main:Number(r.rank).toFixed(2),unit:'điểm xếp hạng',sub:`Gốc ${r.base} · ${r.ok}/${r.total} · ${fmt(r.time)}${r.tabs?` · tab ${r.tabs}`:''}`});
-// Tổng hợp: điểm trung bình của lượt tốt nhất ở mỗi đề
 function avgRows(){const by={};S.results.filter(r=>!r.pm&&S.quizzes.some(q=>q.id==r.quizId)).forEach(r=>{const k=r.userId+'|'+r.quizId;if(!by[k]||r.rank>by[k].rank)by[k]=r});const u={};Object.values(by).forEach(r=>(u[r.userId]??=[]).push(r));
  return Object.entries(u).map(([id,a])=>{const us=S.users.find(x=>x.id==id),avg=a.reduce((t,r)=>t+r.base,0)/a.length;return{userId:id,name:us?.name||a[0].name,classId:us?.classId??a[0].classId,main:avg.toFixed(2),avg,unit:'điểm TB',sub:`${a.length} đề đã làm`,time:a.reduce((t,r)=>t+r.time,0),n:a.length}}).filter(r=>!lb.c||r.classId==lb.c).sort((a,b)=>b.avg-a.avg||b.n-a.n||a.time-b.time)}
 const MD=['🥇','🥈','🥉'];
@@ -421,7 +479,6 @@ function edH(){if(!EP.length)return `<div class="text-center py-16 text-slate-50
   else if(x.type=='tf')b=`<div class="rounded-xl border border-[color:var(--bd)] divide-y divide-[color:var(--bd)] overflow-hidden mt-2">${x.opts.map((o,k)=>`<div class="grid sm:grid-cols-[1fr_auto] gap-x-4 gap-y-2 items-center px-4 py-3"><div><b class="text-[color:var(--ac-t)]">${'abcd'[k]})</b> ${rtf(o)}</div><div class="flex gap-2 sm:w-[9.5rem]">${[true,false].map(v=>`<button class="flex-1 py-1.5 rounded-lg border font-medium ${x.ans[k]===v?'ok':'border-slate-300'}" onclick="edTF(${i},${k},${v})">${v?'Đúng':'Sai'}</button>`).join('')}</div></div>`).join('')}</div>`;
   else b=`<input class="inp mt-2" value="${esc(x.ans.join(' | '))}" onchange="edSA(${i},this.value)" placeholder="Đáp án, nhiều cách viết cách nhau bởi |">`;
   return `<div class="card mb-3" style="padding:1rem"><div class="flex items-center gap-2 mb-2"><b class="text-[color:var(--ac-t)]">Câu ${esc(x.num)}</b><span class="badge">${{mc:'Trắc nghiệm',tf:'Đúng/Sai',sa:'Trả lời ngắn'}[x.type]}</span></div>${x.group&&x.group!=EP[i-1]?.group?`<div class="mb-2 p-3 rounded-xl text-sm leading-relaxed whitespace-pre-line" style="background:var(--mu)">${rtf(x.group,x.num)}</div>`:''}<p class="whitespace-pre-line font-medium mb-1">${rtf(x.text)}</p>${b}${x.exp?`<div class="mt-2 text-xs p-2.5 rounded-lg whitespace-pre-line" style="background:var(--mu)"><b>Lời giải:</b> ${rtf(x.exp)}</div>`:''}</div>`}).join('')}
-// Bấm vào xem trước -> sửa dấu * / *ĐA trong mã
 function edTop(ta,n,lh){const cs=getComputedStyle(ta),m=document.createElement('div');m.style.cssText=`position:absolute;visibility:hidden;left:-9999px;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:${cs.font};line-height:${cs.lineHeight};padding:${cs.padding};width:${ta.clientWidth}px`;m.textContent=ta.value.split('\n').slice(0,n).join('\n')+(n?'\n':'')+'x';document.body.append(m);const t=m.scrollHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-lh;m.remove();return Math.max(0,t)}
 function edApply(ch,ln){const ta=$('#qx'),L=ta.value.replace(/\r/g,'').split('\n');ch.forEach(([n,f])=>{if(n!=null)L[n]=f(L[n])});const y=ta.scrollTop;ta.value=L.join('\n');ta.scrollTop=y;ta.scrollLeft=0;
  const lh=parseFloat(getComputedStyle(ta).lineHeight)||22,top=edTop(ta,ln??ch[0][0],lh);if(top<ta.scrollTop||top>ta.scrollTop+ta.clientHeight-2*lh)ta.scrollTop=Math.max(0,top-ta.clientHeight/2);edPrev(1)}
