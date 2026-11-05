@@ -64,7 +64,6 @@ span.hl{border-radius:3px;color:#0f172a;padding:0 1px}span.hl[data-c=y]{backgrou
 #rform{display:none}#rvid{width:100%;height:100%}
 .rmsg{max-width:85%;padding:.4rem .8rem;border-radius:1rem;font-size:.875rem;word-break:break-word}
 .rmem{display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--bd)}.rmem:last-child{border-bottom:0}
-/* ===== Room extras ===== */
 .room-wrap{position:relative}
 #reaction-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
 .rx{position:absolute;bottom:0;font-size:2rem;animation:flyup 3s ease-out forwards;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
@@ -84,6 +83,13 @@ span.hl{border-radius:3px;color:#0f172a;padding:0 1px}span.hl[data-c=y]{backgrou
 .quality-menu button{display:block;width:100%;text-align:left;padding:.35rem .6rem;border-radius:.4rem;font-size:.8rem}
 .quality-menu button:hover{background:var(--mu)}
 .quality-menu button.on{background:var(--ac-s);color:var(--ac-t);font-weight:600}
+.src-pill{display:inline-flex;align-items:center;gap:.3rem;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:.05em}
+.src-pill.video{background:#e0f2fe;color:#0369a1}
+.src-pill.playlist{background:#f3e8ff;color:#7e22ce}
+.src-pill.mix{background:linear-gradient(135deg,#fecaca,#fed7aa);color:#9a3412}
+.dark .src-pill.video{background:#0c4a6e;color:#7dd3fc}
+.dark .src-pill.playlist{background:#4c1d95;color:#d8b4fe}
+.dark .src-pill.mix{background:#7c2d12;color:#fdba74}
 </style><script>document.documentElement.classList.toggle('dark',(localStorage.getItem('qz_theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))=='dark')</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f66ff'/%3E%3Cpath fill='%23fff' d='M32 13 5 26l27 13 27-13z'/%3E%3Cpath fill='%23fff' fill-opacity='.85' d='M16 35v10c0 5 7 9 16 9s16-4 16-9V35L32 43z'/%3E%3Cpath stroke='%23fff' stroke-width='3' stroke-linecap='round' d='M56 27v14'/%3E%3C/svg%3E">
@@ -193,7 +199,7 @@ async function auth(e){e.preventDefault();const u=$('#au').value.trim().toLowerC
  else{if(S.users.some(x=>x.username==u))return toast('Tên đăng nhập đã tồn tại','err');
   const x={id:uid(),username:u,pass:p,name:$('#an').value.trim(),classId:$('#ac').value,bio:'',avatar:'',role:(u=='admin'||$('#ak').value.trim()=='ADMINVIP')?'admin':'student'};
   await save('users',x);login(x)}return false}
-function login(x){if(x.role=='banned'){fauth?.signOut();toast('Tài khoản của bạn đã bị khóa. Liên hệ quản trị viên.','err');return}me=x;localStorage.setItem('qz_me',x.id);view='dash';toast('Xin chào, '+x.name);render()}
+function login(x){if(x.role=='banned'){fauth?.signOut();toast('Tài khoản đã bị khóa. Liên hệ quản trị viên.','err');return}me=x;localStorage.setItem('qz_me',x.id);view='dash';toast('Xin chào, '+x.name);render()}
 const logout=()=>{me=null;localStorage.removeItem('qz_me');fauth?.signOut();render()},go=v=>{view=v;window.scrollTo(0,0);render()};
 let pend;
 async function gLogin(){if(!fauth)return toast('Cần điền firebaseConfig và bật Google trong Firebase Authentication','err');
@@ -267,14 +273,27 @@ document.addEventListener('selectionchange',()=>{clearTimeout(hlT);hlT=setTimeou
 let RM=null,rtab='chat',ytPr,rxIdx=0;
 const rl={},rkey=id=>'qz_room_'+id,isHost=()=>RM?.doc?.host==me.id;
 
-// --- URL parser: video HOẶC playlist ---
+// --- URL parser: video / playlist / Mix ---
 const ytParse=u=>{
   u=String(u||'').trim();
+  // Kiểm tra playlist (list=...)
   const pl=u.match(/[?&]list=([\w-]+)/);
-  if(pl)return{type:'playlist',id:pl[1]};
+  if(pl){
+    const lid=pl[1];
+    // Mix: "RD..." — có thể kèm video gốc "v=..."
+    if(/^RD/.test(lid)){
+      const v=u.match(/[?&]v=([\w-]{11})/);
+      return {type:'mix',id:lid,startVideo:v?v[1]:lid.slice(2)};
+    }
+    return {type:'playlist',id:lid};
+  }
+  // Video
   const m=u.match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);
   if(m)return{type:'video',id:m[1]};
   if(/^[\w-]{11}$/.test(u))return{type:'video',id:u};
+  // Có thể là list ID thuần
+  if(/^RD[\w-]+$/.test(u))return{type:'mix',id:u,startVideo:u.slice(2)};
+  if(/^PL[\w-]+$/.test(u))return{type:'playlist',id:u};
   return null;
 };
 const ytLoad=()=>ytPr??=new Promise(r=>{if(window.YT?.Player)return r();window.onYouTubeIframeAPIReady=r;const e=document.createElement('script');e.src='https://www.youtube.com/iframe_api';document.head.append(e)});
@@ -295,6 +314,9 @@ function rListen(id,cb){if(useFB)return fdb.collection('rooms').doc(id).onSnapsh
   addEventListener('storage',h);cb(JSON.parse(localStorage.getItem(rkey(id))||'null'));
   return()=>{delete rl[id];removeEventListener('storage',h)};}
 function saveMy(id,name,host){const k='qz_myrooms_'+me.id,a=JSON.parse(localStorage.getItem(k)||'[]').filter(r=>r.id!=id);a.unshift({id,name,host});localStorage.setItem(k,JSON.stringify(a.slice(0,8)))}
+
+const SRC_LBL={video:'Video',playlist:'Playlist',mix:'Mix'};
+const srcPill=t=>`<span class="src-pill ${t}">${SRC_LBL[t]||t}</span>`;
 
 // ===== CRUD phòng =====
 async function rCreate(){
@@ -321,14 +343,19 @@ async function rJoin(id,pw){
 function roomsH(){
   const my=JSON.parse(localStorage.getItem('qz_myrooms_'+me.id)||'[]');
   return `<p class="eyebrow mb-1">Xem chung</p><h1 class="hero mb-2">Xem YouTube cùng bạn bè</h1>
-  <p class="text-slate-500 mb-5 max-w-xl">Tạo phòng, chia sẻ mã và xem cùng một video đồng bộ. Trò chuyện bằng tin nhắn, không dùng mic.</p>
+  <p class="text-slate-500 mb-5 max-w-xl">Tạo phòng, chia sẻ mã và xem cùng một video đồng bộ. Hỗ trợ <b>Video</b>, <b>Playlist</b> và <b>YouTube Mix</b> (Radio).</p>
   <div class="grid md:grid-cols-2 gap-4">
    <div class="card space-y-3"><h3 class="font-semibold">Tạo phòng mới</h3>
     <input id="rn" class="inp" placeholder="Tên phòng">
-    <input id="ru" class="inp" placeholder="Link YouTube (video, live hoặc playlist)">
+    <input id="ru" class="inp" placeholder="Link YouTube (video / playlist / Mix)">
     <input id="rp" type="password" class="inp" placeholder="Mật khẩu phòng (không bắt buộc)">
     <button class="btn w-full" onclick="rCreate()"><i class="fa fa-plus mr-1.5"></i>Tạo phòng</button>
-    <p class="text-xs text-slate-500"><i class="fa fa-circle-info"></i> Dán link dạng <code>watch?v=ID</code>, <code>youtu.be/ID</code> hoặc <code>playlist?list=ID</code></p>
+    <div class="text-xs text-slate-500 space-y-1">
+     <p><i class="fa fa-circle-info"></i> Hỗ trợ các dạng link:</p>
+     <p class="pl-3">• <code>watch?v=ID</code> — video đơn</p>
+     <p class="pl-3">• <code>playlist?list=PL...</code> — playlist thường</p>
+     <p class="pl-3">• <code>watch?v=ID&list=RD...</code> — YouTube Mix / Radio</p>
+    </div>
    </div>
    <div class="card space-y-3"><h3 class="font-semibold">Vào phòng bằng mã</h3>
     <input id="rc" class="inp uppercase" placeholder="Mã phòng (6 ký tự)" maxlength="6">
@@ -348,7 +375,7 @@ function roomH(){
     <div id="rnm" class="font-semibold truncate">${esc(d?.name||'Đang vào...')}</div>
     <div class="text-xs text-slate-500">Mã <b class="tracking-widest">${esc(RM?.id||'')}</b>
      <button class="text-[color:var(--ac-t)] ml-1" onclick="navigator.clipboard?.writeText('${RM?.id}');toast('Đã sao chép')">Copy</button>
-     <span id="rstat" class="ml-2"></span>
+     <span id="rstat" class="ml-2 inline-flex items-center gap-1"></span>
     </div>
    </div>
   </div>
@@ -381,6 +408,7 @@ function roomMount(){
   if(!RM)return;
   if(!RM.un){RM.un=rListen(RM.id,roomUpd);RM.iv=setInterval(roomTick,1000)}
   RM.pl=null;RM.rdy=0;RM.mk=0;RM.sig='';RM.lastSync=Date.now();
+  RM.cvid=null;RM.csrcType=null;
   if(RM.doc&&$('#rvid')){RM.mk=1;ytMake()}
   roomPanel();
 }
@@ -391,10 +419,11 @@ function roomUpd(d){
   if(d.ban?.[me.id]){RM.kicked=1;toast('Bạn đã bị cấm vào phòng này','err');return go('rooms')}
   const prev=RM.doc;RM.doc=d;
   if(!RM.mk&&$('#rvid')){RM.mk=1;ytMake()}
-  if(RM.rdy&&d.vid!=RM.cvid)loadSource(d);
+  // Phát hiện đổi nguồn (video/playlist/mix)
+  const srcChanged = RM.rdy && (d.vid !== RM.cvid || d.srcType !== RM.csrcType);
+  if(srcChanged) loadSource(d);
   roomPanel();
   if(prev?.pb?.rev!==d.pb?.rev)applyPb(d.pb);
-  // reaction mới
   const lastRx=(d.rx||[]).length>0?(d.rx[d.rx.length-1]):null;
   if(lastRx&&(!RM.lastRxTs||lastRx.ts>RM.lastRxTs)){
     RM.lastRxTs=lastRx.ts;
@@ -402,30 +431,53 @@ function roomUpd(d){
   }
 }
 function loadSource(d){
-  RM.cvid=d.vid;
-  if(d.srcType==='playlist')RM.pl.loadPlaylist({list:d.vid,listType:'playlist'});
-  else RM.pl.loadVideoById(d.vid);
+  RM.cvid=d.vid;RM.csrcType=d.srcType;
+  try{
+    if(d.srcType==='mix'){
+      RM.pl.loadPlaylist({list:d.vid,listType:'playlist',index:1});
+    }else if(d.srcType==='playlist'){
+      RM.pl.loadPlaylist({list:d.vid,listType:'playlist'});
+    }else{
+      RM.pl.loadVideoById(d.vid);
+    }
+  }catch(e){
+    // fallback: tạo lại player
+    RM.mk=0;RM.rdy=0;ytMake();
+  }
 }
 
 // ===== Player =====
 function ytMake(){
-  const d=RM.doc,h=isHost();RM.cvid=d.vid;
+  const d=RM.doc,h=isHost();RM.cvid=d.vid;RM.csrcType=d.srcType;
   ytLoad().then(()=>{
     if(!RM||!$('#rvid'))return;
     const isPL=d.srcType==='playlist';
+    const isMix=d.srcType==='mix';
+    let vars={
+      playsinline:1,rel:0,modestbranding:1,
+      controls:h?1:0,disablekb:h?0:1,
+      enablejsapi:1,origin:location.origin
+    };
+    if(isMix){
+      vars.listType='playlist';
+      vars.list=d.vid;
+      vars.index=1;
+    }else if(isPL){
+      vars.listType='playlist';
+      vars.list=d.vid;
+    }else{
+      vars.videoId=d.vid;
+    }
     RM.pl=new YT.Player('rvid',{
       height:'100%',width:'100%',host:'https://www.youtube.com',
-      playerVars:{
-        playsinline:1,rel:0,modestbranding:1,
-        controls:h?1:0,disablekb:h?0:1,
-        enablejsapi:1,origin:location.origin,
-        ...(isPL?{listType:'playlist',list:d.vid}:{videoId:d.vid})
-      },
+      playerVars:vars,
       events:{
         onReady:()=>{
           RM.rdy=1;
-          if(h){if(d.pb?.t>0)RM.pl.seekTo(d.pb.t,true);RM.pl.playVideo()}
-          else applyPb(d.pb,1);
+          if(h){
+            if(d.pb?.t>0)RM.pl.seekTo(d.pb.t,true);
+            RM.pl.playVideo();
+          } else applyPb(d.pb,1);
           updateNowPlaying();
         },
         onStateChange:e=>{
@@ -433,7 +485,9 @@ function ytMake(){
           if(!isHost()||!RM.rdy)return;
           if(e.data===1)pub(true,RM.pl.getCurrentTime());
           else if(e.data===2)pub(false,RM.pl.getCurrentTime());
-          else if(e.data===0){ // ended -> next in queue (nếu có)
+          else if(e.data===0){
+            // Playlist/Mix đã tự next, queue chỉ áp dụng cho video đơn
+            if(isMix||isPL)return;
             const q=RM.doc.queue||[];
             if(q.length){
               const next=q[0],rest=q.slice(1);
@@ -451,7 +505,7 @@ function updateNowPlaying(){
     const vd=RM.pl.getVideoData();
     if(vd&&vd.title){
       const st=$('#rstat');
-      if(st)st.innerHTML=`<i class="fa fa-music mr-1"></i>${esc(vd.title.slice(0,60))}${vd.title.length>60?'…':''}`;
+      if(st)st.innerHTML=`${srcPill(RM.doc.srcType)}<i class="fa fa-music mr-1"></i>${esc(vd.title.slice(0,50))}${vd.title.length>50?'…':''}`;
     }
   }catch(e){}
 }
@@ -469,14 +523,12 @@ function applyPb(pb,force){
   const cur=pl.getCurrentTime?.()||0;
   if(!live&&Math.abs(cur-target)>1.5)pl.seekTo(target,true);
   pb.p?pl.playVideo():pl.pauseVideo();
-  // syncbar
   const sb=$('#syncbar');
   if(sb){sb.style.width='100%';setTimeout(()=>sb.style.width='0%',400)}
 }
 function roomTick(){
   if(!RM)return;RM.c=(RM.c||0)+1;
   if(RM.c%20==1)rUpd(RM.id,{['m.'+me.id]:{n:me.name,ts:Date.now()}}).catch(()=>{});
-  // host báo lên server mỗi 5s
   if(RM.rdy&&isHost()&&RM.c%5==0)pub(RM.pl.getPlayerState()==1,RM.pl.getCurrentTime());
 }
 
@@ -507,9 +559,8 @@ function roomPanel(){
    ${d.pwh?'<span class="badge self-center"><i class="fa fa-key mr-1"></i>Có mật khẩu</span>':''}
   `;
   $('#rnote').textContent=h
-    ?'Bạn là chủ phòng: phát, dừng, tua, đổi video đều đồng bộ. Có thể chuyển quyền chủ phòng.'
+    ?'Bạn là chủ phòng: phát, dừng, tua, đổi nguồn đều đồng bộ. Có thể chuyển quyền chủ phòng.'
     :'Chủ phòng điều khiển video. Nếu bị lệch, bấm Đồng bộ. Bạn có thể chat, thả cảm xúc, xem thành viên.';
-  // Ký hiệu để tránh render lặp
   const sig=rtab+(rtab=='chat'?(d.chat||[]).length+'_'+d.pin:rtab=='mem'?mem.map(x=>x[0]).join():rtab=='queue'?(d.queue||[]).join():[d.locked,d.pwh,d.vid,d.srcType].join());
   if(sig==RM.sig)return;RM.sig=sig;
 
@@ -522,7 +573,7 @@ function roomPanel(){
         <div class="text-[11px] text-slate-500 flex items-center gap-1 ${m.u==me.id?'justify-end':''}">
           ${m.u==d.host?'<span class="badge host-pill">HOST</span>':''}
           ${esc(m.n)}
-          ${h||m.u==me.id?`<button class="opacity-0 group-hover:opacity-100 transition ml-1 text-amber-600" onclick="rPin(${JSON.stringify(m).replace(/"/g,'&quot;')})" title="Ghim"><i class="fa fa-thumbtack"></i></button>`:''}
+          ${h||m.u==me.id?`<button class="opacity-0 group-hover:opacity-100 transition ml-1 text-amber-600" onclick='rPin(${JSON.stringify(m).replace(/'/g,"&#39;")})' title="Ghim"><i class="fa fa-thumbtack"></i></button>`:''}
         </div>
         <div class="rmsg inline-block ${m.u==me.id?'ml-auto':''}" style="background:${m.u==me.id?'var(--ac-s)':'var(--mu)'}">${esc(m.t)}</div>
       </div>`).join('')||'<p class="text-center text-sm text-slate-500 py-8">Chưa có tin nhắn. Hãy chào mọi người!</p>';
@@ -545,13 +596,13 @@ function roomPanel(){
        </div>`).join('');
   }else if(rtab=='queue'){
     const q=d.queue||[];
-    b.innerHTML=`<div class="mb-3 flex gap-2"><input id="qin" class="inp" placeholder="Link YouTube..."><button class="btn" onclick="rQAdd()">Thêm</button></div>
+    b.innerHTML=`<div class="mb-3 flex gap-2"><input id="qin" class="inp" placeholder="Link video..."><button class="btn" onclick="rQAdd()">Thêm</button></div>
      ${q.length?q.map((v,i)=>`<div class="qitem ${i==0?'cur':''}">
        <img src="https://i.ytimg.com/vi/${v}/default.jpg" class="qthumb" onerror="this.style.display='none'">
        <div class="flex-1 min-w-0"><div class="truncate font-medium">${i==0?'▶ Đang phát: ':''}${v}</div><div class="text-xs text-slate-500">${i==0?'Bài hiện tại':'Hàng đợi #'+(i+1)}</div></div>
        <button class="btn b2" onclick="rQDel(${i})"><i class="fa fa-xmark"></i></button>
-      </div>`).join(''):'<p class="text-center text-sm text-slate-500 py-6">Hàng đợi trống. Thêm link để phát tiếp khi video kết thúc.</p>'}
-     <p class="text-xs text-slate-500 mt-3"><i class="fa fa-circle-info"></i> Chỉ chủ phòng thêm/xóa. Khi video hiện tại kết thúc, bài đầu hàng đợi sẽ tự phát.</p>`;
+      </div>`).join(''):'<p class="text-center text-sm text-slate-500 py-6">Hàng đợi trống. Chỉ áp dụng cho video đơn (không có tác dụng với Playlist/Mix).</p>'}
+     <p class="text-xs text-slate-500 mt-3"><i class="fa fa-circle-info"></i> Playlist/Mix tự next theo YouTube, không cần queue.</p>`;
   }else{
     b.innerHTML=`<div class="space-y-5">
      <div><div class="font-medium">Khóa phòng</div>
@@ -561,9 +612,9 @@ function roomPanel(){
       <div class="flex gap-2 mt-1"><input id="rnp" type="password" class="inp" placeholder="${d.pwh?'Đổi mật khẩu':'Đặt mật khẩu'}"><button class="btn" onclick="rPw()">Lưu</button></div>
       ${d.pwh?`<button class="text-sm mt-1 text-[color:var(--er-t)]" onclick="rPw(1)">Gỡ mật khẩu</button>`:''}</div>
      <div><div class="font-medium">Đổi nguồn video</div>
-      <div class="flex gap-2 mt-1"><input id="rnu" class="inp" placeholder="Link video/playlist mới"><button class="btn" onclick="rVid()">Đổi</button></div></div>
+      <div class="flex gap-2 mt-1"><input id="rnu" class="inp" placeholder="Video / Playlist / Mix"><button class="btn" onclick="rVid()">Đổi</button></div>
+      <p class="text-xs text-slate-500 mt-1">Hiện tại: ${srcPill(d.srcType)} <code class="text-xs">${esc(d.vid)}</code></p></div>
      <div><div class="font-medium">Chuyển quyền chủ phòng</div>
-      <p class="text-xs text-slate-500 mb-2">Chọn thành viên để trao quyền điều khiển.</p>
       <select id="rnewhost" class="inp">${mem.filter(([u])=>u!=me.id).map(([u,v])=>`<option value="${u}">${esc(v.n)}</option>`).join('')||'<option disabled>Không có ai</option>'}</select>
       <button class="btn b2 mt-2 w-full" onclick="rTransfer($('#rnewhost').value)">Trao quyền</button></div>
      <div class="pt-2 border-t border-[color:var(--bd)]"><button class="btn br w-full" onclick="rClose()"><i class="fa fa-trash mr-1.5"></i>Đóng phòng</button></div>
@@ -576,8 +627,7 @@ function rSend(e){
   e.preventDefault();const i=$('#rin'),t=i.value.trim().slice(0,300);
   if(!t||!RM||Date.now()-(RM.ls||0)<700)return false;
   RM.ls=Date.now();i.value='';
-  rUpd(RM.id,{['t.'+me.id]:0},{chat:{u:me.id,n:me.name,t,ts:Date.now()}})
-    .catch(()=>toast('Không gửi được','err'));
+  rUpd(RM.id,{['t.'+me.id]:0},{chat:{u:me.id,n:me.name,t,ts:Date.now()}}).catch(()=>toast('Không gửi được','err'));
   return false;
 }
 function rTyping(){
@@ -607,7 +657,7 @@ function spawnRx(e){
 // ===== Queue =====
 function rQAdd(){
   const src=ytParse($('#qin').value);if(!src)return toast('Link không hợp lệ','err');
-  if(src.type==='playlist')return toast('Chỉ thêm video vào hàng đợi (playlist thì dùng nguồn chính)','err');
+  if(src.type!=='video')return toast('Chỉ thêm video đơn vào hàng đợi','err');
   rUpd(RM.id,{queue:[...(RM.doc.queue||[]),src.id]});
   $('#qin').value='';
 }
@@ -629,12 +679,8 @@ async function rClose(){
 }
 const rKick=u=>{const n=RM.doc.m?.[u]?.n||'';if(confirm(`Mời ${n} ra khỏi phòng?`))rUpd(RM.id,{['k.'+u]:true,['m.'+u]:{n,ts:0}})};
 const rBan=u=>{const n=RM.doc.m?.[u]?.n||'';if(confirm(`Cấm ${n} vĩnh viễn?`))rUpd(RM.id,{['ban.'+u]:true,['m.'+u]:{n,ts:0}})};
-function rTransfer(u){
-  if(!u||!RM.doc.m?.[u])return;
-  rUpd(RM.id,{host:u,hn:RM.doc.m[u].n});
-  toast('Đã chuyển quyền chủ phòng');
-}
-function rPin(m){rUpd(RM.id,{pin:m});}
+function rTransfer(u){if(!u||!RM.doc.m?.[u])return;rUpd(RM.id,{host:u,hn:RM.doc.m[u].n});toast('Đã chuyển quyền chủ phòng')}
+function rPin(m){rUpd(RM.id,{pin:m})}
 function rMute(){const p=RM?.pl;if(p)p.isMuted()?p.unMute():p.mute()}
 function rFs(){const w=$('#rvwrap');if(w?.requestFullscreen)w.requestFullscreen()}
 function rQualityMenu(ev){
@@ -649,7 +695,6 @@ function rQualityMenu(ev){
   wrap.append(m);
   setTimeout(()=>document.addEventListener('click',()=>m.remove(),{once:true}),0);
 }
-// Host heartbeat + auto cleanup
 function roomLeave(){
   if(!RM)return;
   clearInterval(RM.iv);RM.un?.();try{RM.pl?.destroy()}catch(e){}
@@ -658,7 +703,7 @@ function roomLeave(){
   RM=null;
 }
 
-// ===== Giữ nguyên phần thi =====
+// ===== Phần thi (giữ nguyên) =====
 async function start(id,opt){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản đã bị khóa','err');return logout()}const q=S.quizzes.find(x=>x.id==id);if(!opt&&q.mode=='multi')return modeSel(id);const o=opt||{pm:0,sq:!!q.shuffle,so:!!q.shuffle};let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(o.so)qs.forEach(x=>x.ord=sh(x.ord));if(o.sq)qs=sh(qs);
  HL={};ex={q,qs,pm:!!o.pm,rv:{},cur:0,ans:{},flag:{},tabs:0,t0:Date.now(),last:0};view='exam';render();clearInterval(tm);tm=setInterval(tick,1000)}
