@@ -65,12 +65,6 @@ span.hl{border-radius:3px;color:#0f172a;padding:0 1px}span.hl[data-c=y]{backgrou
 .rmsg{max-width:85%;padding:.4rem .8rem;border-radius:1rem;font-size:.875rem;word-break:break-word}
 .rmem{display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--bd)}.rmem:last-child{border-bottom:0}
 .room-wrap{position:relative}
-#reaction-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
-.rx{position:absolute;bottom:0;font-size:2rem;animation:flyup 3s ease-out forwards;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
-@keyframes flyup{0%{bottom:0;opacity:1;transform:scale(.6) translateY(0)}20%{transform:scale(1.1)}100%{bottom:100%;opacity:0;transform:scale(.9) translateY(-40px)}}
-.rxtab{position:absolute;right:.75rem;bottom:.75rem;display:flex;gap:.35rem;background:rgba(0,0,0,.55);padding:.4rem .6rem;border-radius:999px;z-index:10;backdrop-filter:blur(8px)}
-.rxtab button{width:2rem;height:2rem;font-size:1.1rem;border-radius:999px;transition:transform .15s;cursor:pointer}
-.rxtab button:hover{transform:scale(1.25);background:rgba(255,255,255,.15)}
 .syncbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.1);z-index:8;overflow:hidden}
 .syncbar>i{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899);transition:width .3s}
 .qitem{display:flex;align-items:center;gap:.5rem;padding:.5rem;border-radius:.6rem;font-size:.8rem}
@@ -343,7 +337,7 @@ async function rCreate(){
   const name=$('#rn').value.trim()||('Phòng của '+me.name);
   const d={id,name,vid:src.id,srcType:src.type,host:me.id,hn:me.name,locked:false,pwh:pw?await sha(pw):'',
     pb:{p:false,t:0,rev:1,ts:Date.now(),title:'',dur:0},
-    m:{},k:{},ban:{},chat:[],rx:[],queue:[],ts:Date.now(),pin:null};
+    m:{},k:{},ban:{},chat:[],queue:[],ts:Date.now(),pin:null};
   useFB?await fdb.collection('rooms').doc(id).set(d):localStorage.setItem(rkey(id),JSON.stringify(d));
   saveMy(id,name,true);RM={id};view='room';render();
 }
@@ -402,10 +396,6 @@ function roomH(){
     <div id="rvwrap" class="room-wrap relative aspect-video rounded-2xl overflow-hidden bg-black">
      <div id="rvid"></div>
      <div id="rov" class="absolute inset-0"></div>
-     <div id="reaction-layer"></div>
-     <div class="rxtab">
-      ${['❤️','😂','😮','👍','🔥'].map(e=>`<button onclick="rReact('${e}')">${e}</button>`).join('')}
-     </div>
      <div class="syncbar"><i id="syncbar" style="width:0%"></i></div>
     </div>
     <div id="rctl" class="flex flex-wrap gap-2 mt-3"></div>
@@ -438,27 +428,17 @@ function roomUpd(d){
   const prev=RM.doc;RM.doc=d;
   if(!RM.mk&&$('#rvid')){RM.mk=1;ytMake()}
   
-  // Fix: Đổi nguồn hoặc đổi bài hát (kể cả trong Mix)
   const srcChanged = RM.rdy && (d.vid !== RM.cvid || d.srcType !== RM.csrcType);
   if(srcChanged) loadSource(d);
   
   roomPanel();
   if(d.pb && (d.pb.rev||0) > (RM.rev||0)) applyPb(d.pb);
-  
-  const lastRx=(d.rx||[]).length>0?(d.rx[d.rx.length-1]):null;
-  if(lastRx&&(!RM.lastRxTs||lastRx.ts>RM.lastRxTs)){
-    RM.lastRxTs=lastRx.ts;
-    if(lastRx.uid!==me.id)spawnRx(lastRx.e);
-  }
 }
 function loadSource(d){
   RM.cvid=d.vid;RM.csrcType=d.srcType;
   try{
     if(d.srcType==='mix'){
-      // Fix: Nếu bài hát khác bài đầu của mix, load đúng bài bằng loadVideoById
-      // Chỉ khởi tạo playlist Mix nếu player chưa từng load mix này
       if (RM.pl.getPlaylistId && RM.pl.getPlaylistId() === d.vid) {
-         // Nếu cùng playlist, chỉ cần load đúng video (nhạc đang phát)
          RM.pl.loadVideoById(d.vid);
       } else {
          RM.pl.loadPlaylist({list:d.vid,listType:'playlist',index:1});
@@ -514,12 +494,10 @@ function ytMake(){
           if(!isHost()||!RM.rdy)return;
           const cur=RM.pl.getCurrentTime()||0;
           
-          // Fix: Khi mix tự động next bài, phải lưu lại bài mới (vid) vào Firestore
           if (isMix && (e.data===1 || e.data===2)) {
              const newVid = RM.pl.getVideoData()?.video_id;
              if (newVid && newVid !== RM.cvid) {
                 RM.cvid = newVid;
-                // Lưu lại bài mới để khách biết đường nhảy
                 rUpd(RM.id, {vid: newVid});
              }
           }
@@ -748,19 +726,6 @@ setInterval(()=>{
   for(const[k,v]of Object.entries(t)){if(k!=me.id&&v&&now-v<4000){const m=RM.doc.m?.[k];if(m)arr.push(m.n.split(' ')[0])}}
   const el=$('#rtyping');if(el)el.textContent=arr.length?arr.slice(0,3).join(', ')+(arr.length>3?` +${arr.length-3}`:'')+' đang nhập...':'';
 },1500);
-
-// ===== Reactions =====
-function rReact(e){
-  if(!RM)return;rxIdx++;
-  rUpd(RM.id,{},{rx:{uid:me.id,e,ts:Date.now()+rxIdx}}).catch(()=>{});
-  spawnRx(e);
-}
-function spawnRx(e){
-  const l=$('#reaction-layer');if(!l)return;
-  const el=document.createElement('div');el.className='rx';el.textContent=e;
-  el.style.left=(15+Math.random()*70)+'%';
-  l.append(el);setTimeout(()=>el.remove(),3000);
-}
 
 // ===== Queue =====
 function rQAdd(){
