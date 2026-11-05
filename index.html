@@ -437,12 +437,12 @@ function roomUpd(d){
   if(d.ban?.[me.id]){RM.kicked=1;toast('Bạn đã bị cấm vào phòng này','err');return go('rooms')}
   const prev=RM.doc;RM.doc=d;
   if(!RM.mk&&$('#rvid')){RM.mk=1;ytMake()}
-  // Đổi nguồn video (cực kỳ quan trọng)
+  
+  // Fix: Đổi nguồn hoặc đổi bài hát (kể cả trong Mix)
   const srcChanged = RM.rdy && (d.vid !== RM.cvid || d.srcType !== RM.csrcType);
   if(srcChanged) loadSource(d);
   
   roomPanel();
-  // Đồng bộ thời gian
   if(d.pb && (d.pb.rev||0) > (RM.rev||0)) applyPb(d.pb);
   
   const lastRx=(d.rx||[]).length>0?(d.rx[d.rx.length-1]):null;
@@ -455,7 +455,14 @@ function loadSource(d){
   RM.cvid=d.vid;RM.csrcType=d.srcType;
   try{
     if(d.srcType==='mix'){
-      RM.pl.loadPlaylist({list:d.vid,listType:'playlist',index:1});
+      // Fix: Nếu bài hát khác bài đầu của mix, load đúng bài bằng loadVideoById
+      // Chỉ khởi tạo playlist Mix nếu player chưa từng load mix này
+      if (RM.pl.getPlaylistId && RM.pl.getPlaylistId() === d.vid) {
+         // Nếu cùng playlist, chỉ cần load đúng video (nhạc đang phát)
+         RM.pl.loadVideoById(d.vid);
+      } else {
+         RM.pl.loadPlaylist({list:d.vid,listType:'playlist',index:1});
+      }
     }else if(d.srcType==='playlist'){
       RM.pl.loadPlaylist({list:d.vid,listType:'playlist'});
     }else{
@@ -506,6 +513,17 @@ function ytMake(){
           updateNowPlaying();
           if(!isHost()||!RM.rdy)return;
           const cur=RM.pl.getCurrentTime()||0;
+          
+          // Fix: Khi mix tự động next bài, phải lưu lại bài mới (vid) vào Firestore
+          if (isMix && (e.data===1 || e.data===2)) {
+             const newVid = RM.pl.getVideoData()?.video_id;
+             if (newVid && newVid !== RM.cvid) {
+                RM.cvid = newVid;
+                // Lưu lại bài mới để khách biết đường nhảy
+                rUpd(RM.id, {vid: newVid});
+             }
+          }
+
           if(e.data===1)pub(true,cur);
           else if(e.data===2)pub(false,cur);
           else if(e.data===0){
@@ -522,7 +540,6 @@ function ytMake(){
   });
 }
 
-// ==== Áp dụng âm lượng local vào player ====
 function applyVol(){
   if(!RM?.pl?.setVolume)return;
   try{
