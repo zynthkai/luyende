@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
+/* ... (Giữ nguyên toàn bộ CSS cũ) ... */
 :root{--bg:#f3f6fc;--sf:#fff;--mu:#e9eef8;--bd:#e1e7f3;--tx:#13213f;--tx2:#5b6b87;--ac:#1a5cff;--ac-t:#1a5cff;--ac2:#3b7bff;--ac-s:#eaf1ff;--ok:#10b981;--ok-t:#047857;--ok-s:#dcf5ea;--ok-b:#34d399;--er:#ef4444;--er-t:#b91c1c;--er-s:#fde8e8;--er-b:#f87171;--wa-t:#b45309;--wa-s:#fdf0d5}
 .dark{--bg:#0f172a;--sf:#1e293b;--mu:#273449;--bd:#334155;--tx:#e8eefc;--tx2:#94a3b8;--ac:#2f6bff;--ac-t:#8db0ff;--ac-s:#1d2b57;--ok-t:#6ee7b7;--ok-s:#0f3a31;--ok-b:#10b981;--er-t:#fca5a5;--er-s:#42232b;--er-b:#ef4444;--wa-t:#fcd34d;--wa-s:#3d3217}
 body{background:var(--bg);color:var(--tx);font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -144,13 +145,16 @@ function toast(m,t='ok'){const d=document.createElement('div');d.className='fade
 const modal=(h,k)=>{$('#modal').innerHTML=h?`<div class="fixed inset-0 bg-slate-900/40 z-40 overflow-auto p-3 flex items-start justify-center"><div class="card w-full max-w-2xl my-6 relative">${k?'':`<button class="absolute right-4 top-2 text-2xl" onclick="modal('')">×</button>`}${h}</div></div>`:'';math()};
 let me=null,view='dash',ex=null,tm,curR,newAv,authMode='login',lb={q:'all',c:''},editId=null;
 
-// ===== Parser đề thi =====
+// ===== Parser đề thi (ĐÃ FIX) =====
 function parse(t,keepL){
   const qs=[];let cq=null,cg='',ig=false,md='text',m;
   t.replace(/\r/g,'').split('\n').forEach((ln,li)=>{
     const tr=ln.trim();
     if(/^\[ĐOẠN VĂN\]$/i.test(tr)){ig=true;cg='';return}
     if(/^\[\/ĐOẠN VĂN\]$/i.test(tr)){ig=false;return}
+    // ⭐ THÊM DÒNG NÀY ĐỂ XÓA PASSAGE KHI HẾT CỤM CÂU HỎI
+    if(/^\[\/HẾT ĐOẠN VĂN\]$/i.test(tr) || /^\[HẾT ĐOẠN VĂN\]$/i.test(tr)){cg='';return}
+    
     if(ig){cg+=(cg?'\n':'')+tr;return}
     if(m=tr.match(/^\s*Câu\s*(\d+)\s*[:.]\s*(.*)$/i)){
       if(cq)qs.push(cq);
@@ -189,8 +193,7 @@ B. However
 C. Because
 *D. Although
 *GT: "Although" (Mặc dù) dùng để nối hai mệnh đề tương phản.
-[ĐOẠN VĂN]
-[/ĐOẠN VĂN]
+[HẾT ĐOẠN VĂN]
 Câu 2: Tìm lỗi sai: My sister went to _the_ bed _early_; _otherwise_ she _would have felt_ extremely tired.
 *A. the
 B. early
@@ -775,7 +778,7 @@ function roomLeave(){
   RM=null;
 }
 
-// ===== Phần thi (giữ nguyên) =====
+// ===== Phần thi =====
 async function start(id,opt){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản đã bị khóa','err');return logout()}const q=S.quizzes.find(x=>x.id==id);if(!opt&&q.mode=='multi')return modeSel(id);const o=opt||{pm:0,sq:!!q.shuffle,so:!!q.shuffle};let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(o.so)qs.forEach(x=>x.ord=sh(x.ord));if(o.sq)qs=sh(qs);
  HL={};ex={q,qs,pm:!!o.pm,rv:{},cur:0,ans:{},flag:{},tabs:0,t0:Date.now(),last:0};view='exam';render();clearInterval(tm);tm=setInterval(tick,1000)}
@@ -889,13 +892,18 @@ function toRaw(qs){
   let out='',lastG='';
   qs.forEach((x,i)=>{
     const g=x.group||'';
-    if(g!==lastG){out+=(out?'\n':'')+`[ĐOẠN VĂN]\n${g}\n[/ĐOẠN VĂN]\n`;lastG=g}
+    if(g!==lastG){
+      if(lastG) out+=(out?'\n':'')+`[/HẾT ĐOẠN VĂN]\n`; // ⭐ Đóng đoạn văn cũ nếu có
+      if(g) out+=(out?'\n':'')+`[ĐOẠN VĂN]\n${g}\n[/ĐOẠN VĂN]\n`; 
+      lastG=g;
+    }
     out+=(out?'\n':'')+`Câu ${x.num||(i+1)}: ${x.text}\n`;
     if(x.type=='mc')x.opts.forEach((o,k)=>out+=`${'ABCD'[k]==x.ans?'*':''}${'ABCD'[k]}. ${o}\n`);
     else if(x.type=='tf')x.opts.forEach((o,k)=>out+=`${x.ans[k]?'*':''}${'abcd'[k]}) ${o}\n`);
     else if(x.type=='sa')out+=`*ĐA: ${x.ans.join(' | ')}\n`;
     if(x.exp)out+=`*GT: ${x.exp}\n`;
   });
+  if(lastG) out+=(out?'\n':'')+`[/HẾT ĐOẠN VĂN]\n`; // Đóng đoạn văn cuối cùng
   return out.trim();
 }
 let EP=[],edT=null,edInit='';
@@ -913,7 +921,15 @@ Câu 2:
 *A. about
 B. with
 C. in
-D. at`;
+D. at
+[/HẾT ĐOẠN VĂN]
+Câu 3: Cho các nhận định sau:
+*a) Nhận định đúng
+b) Nhận định sai
+*c) Nhận định đúng
+d) Nhận định sai
+Câu 4: Tính $\\sqrt{25}\\div 2$.
+*ĐA: 2,5 | 2.5`;
 function quizForm(id=null){if(!canMake()||(id&&!canEdit(S.quizzes.find(x=>x.id==id))))return toast('Bạn không có quyền','err');editId=id;const q=id?S.quizzes.find(x=>x.id==id):null,raw=q?toRaw(q.qs):'';
  $('#modal').innerHTML=`<div class="ed fixed inset-0 z-40 flex flex-col" data-t="code" style="background:var(--bg)">
  <header class="flex items-center gap-2 px-3 py-2.5 border-b border-[color:var(--bd)]" style="background:var(--sf)"><button class="ib" onclick="closeEd()" title="Đóng"><i class="fa fa-xmark"></i></button><b>${q?'Cập nhật đề':'Tạo đề mới'}</b><span id="edinfo" class="text-xs text-slate-500 ml-1"></span>
