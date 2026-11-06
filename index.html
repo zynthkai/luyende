@@ -10,7 +10,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
-/* ... (Giữ nguyên toàn bộ CSS cũ) ... */
 :root{--bg:#f3f6fc;--sf:#fff;--mu:#e9eef8;--bd:#e1e7f3;--tx:#13213f;--tx2:#5b6b87;--ac:#1a5cff;--ac-t:#1a5cff;--ac2:#3b7bff;--ac-s:#eaf1ff;--ok:#10b981;--ok-t:#047857;--ok-s:#dcf5ea;--ok-b:#34d399;--er:#ef4444;--er-t:#b91c1c;--er-s:#fde8e8;--er-b:#f87171;--wa-t:#b45309;--wa-s:#fdf0d5}
 .dark{--bg:#0f172a;--sf:#1e293b;--mu:#273449;--bd:#334155;--tx:#e8eefc;--tx2:#94a3b8;--ac:#2f6bff;--ac-t:#8db0ff;--ac-s:#1d2b57;--ok-t:#6ee7b7;--ok-s:#0f3a31;--ok-b:#10b981;--er-t:#fca5a5;--er-s:#42232b;--er-b:#ef4444;--wa-t:#fcd34d;--wa-s:#3d3217}
 body{background:var(--bg);color:var(--tx);font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -100,6 +99,19 @@ span.hl{border-radius:3px;color:#0f172a;padding:0 1px}span.hl[data-c=y]{backgrou
  .vol-ctrl{min-width:0;flex:1}
  .vol-val{display:none}
 }
+/* ===== Tối ưu Giao diện Làm Bài (Exam) trên Mobile ===== */
+.exam-layout{padding-bottom:6rem;}
+.exam-header{position:sticky;top:0;z-index:30;background:var(--sf);border-bottom:1px solid var(--bd);padding:.5rem .75rem;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;box-shadow:0 4px 6px -1px rgb(0 0 0/.05)}
+.exam-palette-wrap{position:sticky;top:54px;z-index:20;background:var(--bg);padding:.5rem .75rem;border-bottom:1px solid var(--bd);box-shadow:0 4px 6px -1px rgb(0 0 0/.05)}
+.exam-palette{display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
+.exam-palette::-webkit-scrollbar{display:none}
+.exam-palette button{flex-shrink:0;min-width:2.2rem;height:2.2rem;border-radius:.5rem;border:1px solid var(--bd);font-weight:600;font-size:.85rem;background:var(--sf);color:var(--tx2);transition:all .15s}
+.exam-palette button.cur{border-color:var(--ac);color:var(--ac-t);box-shadow:0 0 0 2px var(--ac-s)}
+.exam-palette button.done{background:var(--ok-s);color:var(--ok-t);border-color:var(--ok-b)}
+.exam-palette button.flag{background:var(--wa-s);color:var(--wa-t);border-color:var(--wa-t)}
+.exam-nav-sticky{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--sf);border-top:1px solid var(--bd);padding:.5rem .75rem calc(.5rem + env(safe-area-inset-bottom));display:flex;justify-content:space-between;gap:.5rem;box-shadow:0 -4px 6px -1px rgb(0 0 0/.05)}
+.exam-q-body{padding:1rem .75rem}
+.q-group-box{background:var(--mu);border:1px solid var(--bd);border-radius:.85rem;padding:1rem;max-height:30vh;overflow-y:auto;margin-bottom:1rem;font-size:.9rem;white-space:pre-line}
 </style><script>document.documentElement.classList.toggle('dark',(localStorage.getItem('qz_theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))=='dark')</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f66ff'/%3E%3Cpath fill='%23fff' d='M32 13 5 26l27 13 27-13z'/%3E%3Cpath fill='%23fff' fill-opacity='.85' d='M16 35v10c0 5 7 9 16 9s16-4 16-9V35L32 43z'/%3E%3Cpath stroke='%23fff' stroke-width='3' stroke-linecap='round' d='M56 27v14'/%3E%3C/svg%3E">
@@ -145,14 +157,13 @@ function toast(m,t='ok'){const d=document.createElement('div');d.className='fade
 const modal=(h,k)=>{$('#modal').innerHTML=h?`<div class="fixed inset-0 bg-slate-900/40 z-40 overflow-auto p-3 flex items-start justify-center"><div class="card w-full max-w-2xl my-6 relative">${k?'':`<button class="absolute right-4 top-2 text-2xl" onclick="modal('')">×</button>`}${h}</div></div>`:'';math()};
 let me=null,view='dash',ex=null,tm,curR,newAv,authMode='login',lb={q:'all',c:''},editId=null;
 
-// ===== Parser đề thi (ĐÃ FIX) =====
+// ===== Parser đề thi =====
 function parse(t,keepL){
   const qs=[];let cq=null,cg='',ig=false,md='text',m;
   t.replace(/\r/g,'').split('\n').forEach((ln,li)=>{
     const tr=ln.trim();
     if(/^\[ĐOẠN VĂN\]$/i.test(tr)){ig=true;cg='';return}
     if(/^\[\/ĐOẠN VĂN\]$/i.test(tr)){ig=false;return}
-    // ⭐ THÊM DÒNG NÀY ĐỂ XÓA PASSAGE KHI HẾT CỤM CÂU HỎI
     if(/^\[\/HẾT ĐOẠN VĂN\]$/i.test(tr) || /^\[HẾT ĐOẠN VĂN\]$/i.test(tr)){cg='';return}
     
     if(ig){cg+=(cg?'\n':'')+tr;return}
@@ -239,7 +250,7 @@ function render(){const app=$('#app'),y=window.scrollY;
  if(!me||view=='exam'){shellKey='';app.innerHTML=!me?authH():examH()}
  else{const k=me.id+me.name+me.avatar+me.role;if(k!=shellKey){app.innerHTML=shellH();shellKey=k}
   $('#main').innerHTML=({dash:dashH,home:homeH,lb:lbH,history:histH,res:resH,rev:revH,rooms:roomsH,room:roomH}[view])();navState()}
- math();charts();if(view=='room')roomMount();else if(RM)roomLeave();if(view=='exam'){const pl=$('#pal'),c=$('#pal .ring-2');if(pl&&c)pl.scrollLeft=c.offsetLeft-pl.clientWidth/2+c.clientWidth/2}tIcon();requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}))}
+ math();charts();if(view=='room')roomMount();else if(RM)roomLeave();if(view=='exam'){const pl=$('#pal'),c=$('#pal .cur');if(pl&&c)pl.scrollLeft=c.offsetLeft-pl.clientWidth/2+c.clientWidth/2}tIcon();requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}))}
 function navState(){const[n,t]=VT[view];document.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v==n));$('#pt').textContent=t;$('#shell').classList.remove('opn')}
 function sbToggle(){const e=$('#shell');if(matchMedia('(max-width:767px)').matches)e.classList.toggle('opn');else localStorage.setItem('qz_sb',e.classList.toggle('col')?'1':'0')}
 function theme(){const d=document.documentElement.classList.toggle('dark');localStorage.setItem('qz_theme',d?'dark':'light');render()}
@@ -778,7 +789,7 @@ function roomLeave(){
   RM=null;
 }
 
-// ===== Phần thi =====
+// ===== Phần thi (CẬP NHẬT GIAO DIỆN MOBILE) =====
 async function start(id,opt){if(useFB){try{const d=await fdb.collection('users').doc(me.id).get();if(d.exists)me.role=d.data().role}catch(e){}}if(me.role=='banned'){toast('Tài khoản đã bị khóa','err');return logout()}const q=S.quizzes.find(x=>x.id==id);if(!opt&&q.mode=='multi')return modeSel(id);const o=opt||{pm:0,sq:!!q.shuffle,so:!!q.shuffle};let qs=q.qs.map((x,i)=>({...x,i,num:x.num||(i+1),ord:[0,1,2,3]}));
  if(o.so)qs.forEach(x=>x.ord=sh(x.ord));if(o.sq)qs=sh(qs);
  HL={};ex={q,qs,pm:!!o.pm,rv:{},cur:0,ans:{},flag:{},tabs:0,t0:Date.now(),last:0};view='exam';render();clearInterval(tm);tm=setInterval(tick,1000)}
@@ -789,14 +800,72 @@ function modeSel(id,u){const q=S.quizzes.find(x=>x.id==id);if(u)Object.assign(sm
 const el=()=>Math.floor((Date.now()-ex.t0)/1000);
 const left=()=>Math.max(0,ex.q.dur*60-Math.floor((Date.now()-ex.t0)/1000));
 function tick(){if(!ex)return;if(!ex.pm&&!left()){toast('Hết giờ, tự nộp bài','err');return submit()}const e=$('#tm');if(e)e.textContent=fmt(ex.pm?el():left())}
-const palH=()=>ex.qs.map((x,k)=>{const a=ex.ans[x.i],d=Array.isArray(a)?a.some(v=>v!=null):(a!==undefined&&a!=='');return `<button onclick="ex.cur=${k};render()" class="shrink-0 min-w-[2.7rem] md:min-w-0 py-2 rounded-lg border text-sm ${k==ex.cur?'border-[color:var(--ac)] ring-2 ring-[color:var(--ac)]':'border-slate-300'} ${ex.flag[x.i]?'bg-amber-500 text-[color:var(--tx)]':d?'bg-[color:var(--ok-s)] border-[color:var(--ok-b)] text-[color:var(--ok-t)]':''}">${k+1}</button>`}).join('');
-function examH(){const{q,qs,cur}=ex,x=qs[cur],a=ex.ans[x.i],n=qs.filter(y=>{const v=ex.ans[y.i];return Array.isArray(v)?v.some(z=>z!=null):(v!==undefined&&v!=='')}).length;
- const qTxt=x.text||`Chọn phương án đúng nhất để điền vào chỗ trống (${x.num}) trong đoạn văn:`;
- const rv=ex.pm&&ex.rv[x.i];let body='';
- if(x.type=='mc')body=x.ord.filter(o=>o<x.opts.length).map((o,p)=>`<button class="opt ${rv?('ABCD'[o]==x.ans?'ok':a===o?'no':''):(a===o?'sel':'')}" onclick="ex.ans[${x.i}]=${o};if(ex.pm)ex.rv[${x.i}]=1;render()"><b class="text-[color:var(--ac-t)]">${'ABCD'[p]}.</b> ${rtf(x.opts[o])}</button>`).join('');
- else if(x.type=='tf')body=`<div class="mt-3 rounded-xl border border-[color:var(--bd)] overflow-hidden"><div class="hidden sm:grid grid-cols-[1fr_auto] gap-4 px-4 py-2 bg-[color:var(--mu)] border-b border-[color:var(--bd)] text-xs font-semibold uppercase tracking-wider text-slate-500"><span>Nhận định</span><span class="w-[9.5rem] text-center">Chọn đáp án</span></div><div class="divide-y divide-[color:var(--bd)]">`+x.ord.filter(o=>o<x.opts.length).map((o,p)=>`<div class="grid sm:grid-cols-[1fr_auto] gap-x-4 gap-y-3 items-center px-4 py-3.5"><div><b class="text-[color:var(--ac-t)]">${'abcd'[p]})</b> ${rtf(x.opts[o])}</div><div class="flex gap-2 sm:w-[9.5rem]">${[true,false].map(v=>`<button class="flex-1 py-1.5 rounded-lg border font-medium ${rv?(x.ans[o]===v?'ok':a?.[o]===v?'no':'border-slate-300'):(a?.[o]===v?'sel':'border-slate-300')}" onclick="(ex.ans[${x.i}]=ex.ans[${x.i}]||[null,null,null,null])[${o}]=${v};render()">${v?'Đúng':'Sai'}</button>`).join('')}</div></div>`).join('')+`</div></div>`;
- else body=`<input class="inp mt-3" placeholder="Nhập đáp án..." value="${esc(a||'')}" oninput="ex.ans[${x.i}]=this.value;$('#pal').innerHTML=palH()">${rv?`<div class="opt ok mt-2">Đáp án: ${esc(x.ans.join(' | '))}</div>`:''}`;
- return `<div class="max-w-5xl mx-auto p-3"><div class="card flex items-center gap-2 sm:gap-3 sticky top-2 z-20" style="padding:.6rem .8rem"><b class="mr-auto truncate min-w-0">${esc(q.title)}</b>${ex.pm?'<span class="badge shrink-0">Luyện tập</span>':''}${q.anti&&!ex.pm?`<span class="text-amber-600 text-sm" title="Số lần rời màn hình"><i class="fa fa-eye"></i> <span id="tb">${ex.tabs}</span></span>`:''}${tbtn()}<b id="tm" class="text-xl text-[color:var(--ac-t)]">${fmt(ex.pm?el():left())}</b><button class="btn bg whitespace-nowrap shrink-0" onclick="if(confirm('Nộp bài ngay?'))submit()">Nộp bài</button></div><div class="h-2 bg-[color:var(--mu)] rounded-full my-3 overflow-hidden"><div class="h-full bg-[color:var(--ok)] transition-all" style="width:${n/qs.length*100}%"></div></div><div class="grid md:grid-cols-[1fr_220px] gap-3"><div class="card"><div class="flex justify-between items-center mb-2"><h3 class="font-bold text-[color:var(--ac-t)]">Câu ${cur+1}/${qs.length}: ${{mc:'Trắc nghiệm',tf:'Đúng/Sai',sa:'Trả lời ngắn'}[x.type]}</h3><button onclick="ex.flag[${x.i}]=!ex.flag[${x.i}];render()" class="${ex.flag[x.i]?'text-amber-600 font-semibold':'text-slate-400'}"><i class="fa fa-flag"></i> Phân vân</button></div>${x.group?`<div class="mb-4 p-4 bg-[color:var(--mu)] border border-[color:var(--bd)] rounded-xl whitespace-pre-line text-[color:var(--tx)] leading-relaxed max-h-80 overflow-y-auto"><div class="text-xs font-bold uppercase tracking-wider text-[color:var(--ac-t)] mb-1"><i class="fa fa-book-open"></i> Nội dung bài đọc / Yêu cầu chung:</div><div data-hl="g${x.i}">${HL['g'+x.i]??rtf(x.group,x.num)}</div></div>`:''}<p data-hl="t${x.i}" class="my-3 whitespace-pre-line font-semibold text-[color:var(--tx)]">${HL['t'+x.i]??rtf(qTxt)}</p>${rv?`<div class="pointer-events-none">${body}</div>`:body}${ex.pm?(rv?`<div class="mt-4 p-4 rounded-xl border border-[color:var(--bd)] bg-[color:var(--mu)] whitespace-pre-line"><b><i class="fa fa-lightbulb mr-1.5"></i>Lời giải</b><div class="mt-1">${x.exp?rtf(x.exp):'Câu này chưa có lời giải chi tiết.'}</div></div>`:`<button class="btn b2 mt-4" onclick="ex.rv[${x.i}]=1;render()"><i class="fa fa-eye mr-1.5"></i>Xem đáp án và lời giải</button>`):''}<div class="flex justify-between mt-5"><button class="btn b2" ${cur?'':'disabled'} onclick="ex.cur--;render()">Câu trước</button><button class="btn" ${cur<qs.length-1?'':'disabled'} onclick="ex.cur++;render()">Câu sau</button></div></div><div class="card h-fit order-first md:order-none" style="padding:.75rem"><p class="text-sm text-slate-500 mb-2">Đã làm ${n}/${qs.length}</p><div id="pal" class="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-5 md:overflow-visible md:pb-0">${palH()}</div></div></div></div>`}
+
+const palH=()=>ex.qs.map((x,k)=>{
+  const a=ex.ans[x.i],d=Array.isArray(a)?a.some(v=>v!=null):(a!==undefined&&a!=='');
+  let cls='';
+  if(k==ex.cur) cls='cur';
+  else if(ex.flag[x.i]) cls='flag';
+  else if(d) cls='done';
+  return `<button onclick="ex.cur=${k};render()" class="${cls}">${k+1}</button>`
+}).join('');
+
+function examH(){
+  const{q,qs,cur}=ex,x=qs[cur],a=ex.ans[x.i],n=qs.filter(y=>{const v=ex.ans[y.i];return Array.isArray(v)?v.some(z=>z!=null):(v!==undefined&&v!=='')}).length;
+  const qTxt=x.text||`Chọn phương án đúng nhất để điền vào chỗ trống (${x.num}) trong đoạn văn:`;
+  const rv=ex.pm&&ex.rv[x.i];let body='';
+  
+  if(x.type=='mc')body=x.ord.filter(o=>o<x.opts.length).map((o,p)=>`<button class="opt ${rv?('ABCD'[o]==x.ans?'ok':a===o?'no':''):(a===o?'sel':'')}" onclick="ex.ans[${x.i}]=${o};if(ex.pm)ex.rv[${x.i}]=1;render()"><b class="text-[color:var(--ac-t)]">${'ABCD'[p]}.</b> ${rtf(x.opts[o])}</button>`).join('');
+  else if(x.type=='tf')body=`<div class="mt-3 rounded-xl border border-[color:var(--bd)] overflow-hidden"><div class="hidden sm:grid grid-cols-[1fr_auto] gap-4 px-4 py-2 bg-[color:var(--mu)] border-b border-[color:var(--bd)] text-xs font-semibold uppercase tracking-wider text-slate-500"><span>Nhận định</span><span class="w-[9.5rem] text-center">Chọn đáp án</span></div><div class="divide-y divide-[color:var(--bd)]">`+x.ord.filter(o=>o<x.opts.length).map((o,p)=>`<div class="grid sm:grid-cols-[1fr_auto] gap-x-4 gap-y-3 items-center px-4 py-3.5"><div><b class="text-[color:var(--ac-t)]">${'abcd'[p]})</b> ${rtf(x.opts[o])}</div><div class="flex gap-2 sm:w-[9.5rem]">${[true,false].map(v=>`<button class="flex-1 py-1.5 rounded-lg border font-medium ${rv?(x.ans[o]===v?'ok':a?.[o]===v?'no':'border-slate-300'):(a?.[o]===v?'sel':'border-slate-300')}" onclick="(ex.ans[${x.i}]=ex.ans[${x.i}]||[null,null,null,null])[${o}]=${v};render()">${v?'Đúng':'Sai'}</button>`).join('')}</div></div>`).join('')+`</div></div>`;
+  else body=`<input class="inp mt-3" placeholder="Nhập đáp án..." value="${esc(a||'')}" oninput="ex.ans[${x.i}]=this.value;$('#pal').innerHTML=palH()">${rv?`<div class="opt ok mt-2">Đáp án: ${esc(x.ans.join(' | '))}</div>`:''}`;
+
+  return `<div class="exam-layout">
+    <div class="exam-header">
+      <div class="flex items-center gap-2 w-full min-w-0">
+        <b class="truncate flex-1 text-sm">${esc(q.title)}</b>
+        ${ex.pm?'<span class="badge shrink-0">Luyện tập</span>':''}
+        ${q.anti&&!ex.pm?`<span class="text-amber-600 text-sm shrink-0" title="Số lần rời màn hình"><i class="fa fa-eye"></i> <span id="tb">${ex.tabs}</span></span>`:''}
+        <b id="tm" class="text-lg text-[color:var(--ac-t)] shrink-0">${fmt(ex.pm?el():left())}</b>
+        ${tbtn()}
+        <button class="btn bg shrink-0 px-3 py-1.5 text-xs" onclick="if(confirm('Nộp bài ngay?'))submit()">Nộp</button>
+      </div>
+    </div>
+
+    <div class="exam-palette-wrap">
+      <div class="flex justify-between items-center mb-1 text-xs text-slate-500">
+        <span>Đã làm <b>${n}</b>/${qs.length}</span>
+      </div>
+      <div id="pal" class="exam-palette">${palH()}</div>
+    </div>
+
+    <div class="exam-q-body">
+      <div class="card" style="padding:1rem">
+        <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+          <h3 class="font-bold text-[color:var(--ac-t)] text-base">Câu ${cur+1}/${qs.length}: ${{mc:'Trắc nghiệm',tf:'Đúng/Sai',sa:'Trả lời ngắn'}[x.type]}</h3>
+          <button onclick="ex.flag[${x.i}]=!ex.flag[${x.i}];render()" class="text-sm shrink-0 ${ex.flag[x.i]?'text-amber-600 font-semibold':'text-slate-400'}">
+            <i class="fa fa-flag"></i> Phân vân
+          </button>
+        </div>
+        
+        ${x.group?`<div class="q-group-box" data-hl="g${x.i}">
+          <div class="text-xs font-bold uppercase tracking-wider text-[color:var(--ac-t)] mb-1 sticky top-0 bg-[color:var(--mu)] pb-1"><i class="fa fa-book-open"></i> Ngữ liệu chung:</div>
+          <div>${HL['g'+x.i]??rtf(x.group,x.num)}</div>
+        </div>`:''}
+        
+        <p data-hl="t${x.i}" class="my-3 whitespace-pre-line font-semibold text-[color:var(--tx)] text-base">${HL['t'+x.i]??rtf(qTxt)}</p>
+        
+        ${rv?`<div class="pointer-events-none">${body}</div>`:body}
+        
+        ${ex.pm?(rv?`<div class="mt-4 p-4 rounded-xl border border-[color:var(--bd)] bg-[color:var(--mu)] whitespace-pre-line text-sm"><b><i class="fa fa-lightbulb mr-1.5"></i>Lời giải</b><div class="mt-1">${x.exp?rtf(x.exp):'Câu này chưa có lời giải chi tiết.'}</div></div>`:`<button class="btn b2 w-full mt-4 py-2 text-sm" onclick="ex.rv[${x.i}]=1;render()"><i class="fa fa-eye mr-1.5"></i>Xem đáp án và lời giải</button>`):''}
+      </div>
+    </div>
+
+    <div class="exam-nav-sticky">
+      <button class="btn b2 flex-1" ${cur?'':'disabled'} onclick="ex.cur--;render()">Câu trước</button>
+      <button class="btn flex-1" ${cur<qs.length-1?'':'disabled'} onclick="ex.cur++;render()">Câu sau</button>
+    </div>
+  </div>`;
+}
 const cheat=()=>{if(!ex||ex.pm||!ex.q.anti||Date.now()-ex.last<1500)return;ex.last=Date.now();ex.tabs++;toast(`Cảnh báo: bạn rời màn hình (lần ${ex.tabs})`,'err');const e=$('#tb');if(e)e.textContent=ex.tabs};
 document.addEventListener('visibilitychange',()=>document.hidden&&cheat());addEventListener('blur',cheat);
 function grade(q,ans){let pts=0,ok=0;const per=10/q.qs.length;
@@ -830,7 +899,7 @@ function revH(){const r=curR,q=quizOf(r);if(!q||!canRev(r))return '<p>Đề này
   if(x.type=='mc')b=x.opts.map((o,k)=>`<div class="opt ${'ABCD'[k]==x.ans?'ok':a===k?'no':''}"><b>${'ABCD'[k]}.</b> ${rtf(o)}</div>`).join('');
   else if(x.type=='tf')b=x.opts.map((o,k)=>`<div class="opt ${a?.[k]===x.ans[k]?'ok':'no'}"><b>${'abcd'[k]})</b> ${rtf(o)}<br><span class="text-sm">Đáp án: <b>${x.ans[k]?'Đúng':'Sai'}</b>. Bạn chọn: ${a?.[k]==null?'chưa chọn':a[k]?'Đúng':'Sai'}</span></div>`).join('');
   else b=`<div class="opt ${s.s=='ok'?'ok':'no'}">Bạn trả lời: ${esc(a||'(trống)')}</div><div class="opt ok">Đáp án: ${esc(x.ans.join(' | '))}</div>`;
-  return `<div id="rq${i}" class="card mb-4 scroll-mt-20"><div class="flex flex-wrap items-center gap-2 mb-2"><b class="text-[color:var(--ac-t)]">Câu ${i+1}</b><span class="text-xs font-semibold px-2 py-0.5 rounded-full ${bd[1]}"><i class="fa ${bd[2]}"></i> ${bd[0]}${s.part?` · ${s.part}`:''}</span></div>${x.group?`<div class="mb-2 p-3 bg-[color:var(--mu)] border border-[color:var(--bd)] rounded-xl whitespace-pre-line text-sm leading-relaxed" data-hl="rg${curR.id}_${i}">${HL['rg'+curR.id+'_'+i]??rtf(x.group,qNum)}</div>`:''}<p data-hl="rt${curR.id}_${i}" class="whitespace-pre-line my-2 font-semibold">${HL['rt'+curR.id+'_'+i]??rtf(qTxt)}</p>${b}${x.exp?`<div class="mt-3 p-3 rounded-xl bg-[color:var(--mu)] border border-[color:var(--bd)] whitespace-pre-line"><b>Lời giải:</b> ${rtf(x.exp)}</div>`:''}</div>`}).join('');
+  return `<div id="rq${i}" class="card mb-4 scroll-mt-20"><div class="flex flex-wrap items-center gap-2 mb-2"><b class="text-[color:var(--ac-t)]">Câu ${i+1}</b><span class="text-xs font-semibold px-2 py-0.5 rounded-full ${bd[1]}"><i class="fa ${bd[2]}"></i> ${bd[0]}${s.part?` · ${s.part}`:''}</span></div>${x.group?`<div class="q-group-box" data-hl="rg${curR.id}_${i}">${HL['rg'+curR.id+'_'+i]??rtf(x.group,qNum)}</div>`:''}<p data-hl="rt${curR.id}_${i}" class="whitespace-pre-line my-2 font-semibold">${HL['rt'+curR.id+'_'+i]??rtf(qTxt)}</p>${b}${x.exp?`<div class="mt-3 p-3 rounded-xl bg-[color:var(--mu)] border border-[color:var(--bd)] whitespace-pre-line"><b>Lời giải:</b> ${rtf(x.exp)}</div>`:''}</div>`}).join('');
  return `<div class="flex flex-wrap items-end justify-between gap-3 mb-3"><div><p class="text-xs uppercase tracking-widest text-[color:var(--tx2)] font-bold mb-1">Xem lại bài làm</p><h2 class="text-2xl font-bold">${esc(q.title)}</h2><p class="text-sm text-slate-500 mt-1">${dtf(r.ts)}</p></div><div class="text-right"><div class="text-2xl font-extrabold text-[color:var(--ac-t)]">${r.base}/10</div><div class="text-xs text-slate-500">Điểm gốc</div></div></div>
  <div class="card mb-4"><div class="h-2 rounded-full bg-[color:var(--er-s)] overflow-hidden mb-3"><div class="h-full bg-[color:var(--ok-b)]" style="width:${nOk/st.length*100}%"></div></div><div class="flex flex-wrap gap-2 mb-3">${tab('all','Tất cả',st.length,'bg-[color:var(--ac)] border-[color:var(--ac)] text-white')}${tab('ok','Đúng',nOk,'bg-[color:var(--ok-s)] border-[color:var(--ok-b)] text-[color:var(--ok-t)]')}${tab('bad','Sai',nBad,'bg-[color:var(--er-s)] border-[color:var(--er-b)] text-[color:var(--er-t)]')}</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
  ${cards||`<div class="card text-center py-10 text-slate-500">${rvf=='bad'?'Bạn không sai câu nào.':'Không có câu nào.'}</div>`}
@@ -893,7 +962,7 @@ function toRaw(qs){
   qs.forEach((x,i)=>{
     const g=x.group||'';
     if(g!==lastG){
-      if(lastG) out+=(out?'\n':'')+`[/HẾT ĐOẠN VĂN]\n`; // ⭐ Đóng đoạn văn cũ nếu có
+      if(lastG) out+=(out?'\n':'')+`[/HẾT ĐOẠN VĂN]\n`;
       if(g) out+=(out?'\n':'')+`[ĐOẠN VĂN]\n${g}\n[/ĐOẠN VĂN]\n`; 
       lastG=g;
     }
@@ -903,7 +972,7 @@ function toRaw(qs){
     else if(x.type=='sa')out+=`*ĐA: ${x.ans.join(' | ')}\n`;
     if(x.exp)out+=`*GT: ${x.exp}\n`;
   });
-  if(lastG) out+=(out?'\n':'')+`[/HẾT ĐOẠN VĂN]\n`; // Đóng đoạn văn cuối cùng
+  if(lastG) out+=(out?'\n':'')+`[/HẾT ĐOẠN VĂN]\n`;
   return out.trim();
 }
 let EP=[],edT=null,edInit='';
